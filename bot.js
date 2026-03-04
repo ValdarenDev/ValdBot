@@ -1,7 +1,6 @@
 import tmi from "tmi.js";
 import dotenv from "dotenv";
 import { getElo } from "./api.js";
-import { getToday } from "./api.js";
 
 dotenv.config();
 

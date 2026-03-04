@@ -31,10 +31,10 @@ client.on("message", async (channel, tags, message, self) => {
     const arg = parts[1];
 
 
-    if (command === "!elo" || "+elo") {
+    if (command === "!elo" || command === "+elo") {
         const result = await getElo(arg);
 
-        client.say(channel, `@${tags.username} ${result}`);
+        client.say(channel, `/me @${tags.username} ${result}`);
     }
-    
+
 });

@@ -19,8 +19,9 @@ export async function getElo(username) {
         let userPb = timeConversion(userStats.bestTime.ranked);
         let userAverage = timeConversion(userStats.completionTime.ranked/userCompletions);
 
-        let responseMessage = `${userName} Elo: ${userElo} (${userPeak} Peak) | ${userRank} (${userPlacement}) | W/L: ${userWins}/${userLosses} (${userWinrate}%) | Matches: ${userMatchesPlayed} Played | Pb: ${userPb} Average: ${userAverage} | Phase Points: ${userPhasePoints}`;
+        let responseMessage = `${userName} Elo: ${userElo} (${userPeak} Peak) | ${userRank} (#${userPlacement}) | W/L: ${userWins}/${userLosses} (${userWinrate}%) | Matches: ${userMatchesPlayed} Played | Pb: ${userPb} Average: ${userAverage} | Phase Points: ${userPhasePoints}`;
 
+        console.log("Successful");
         return responseMessage;
     } catch (err) {
         console.error("API error:");
@@ -35,7 +36,7 @@ export async function getToday(username) {
         const response = await axios.get(`https://mcsrranked.com/api/users/${username}`);
         let userData = response.data.data;
         let userStats = userData.statistics.season
-        
+
 
         return responseMessage;
     } catch (err) {

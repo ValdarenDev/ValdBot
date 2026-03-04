@@ -1,2 +1,2 @@
 # ValdBot
-Twitch ChatBot
+Twitch ChatBot for MCSR Ranked

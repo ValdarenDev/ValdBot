@@ -1,75 +1,40 @@
-// ===============================
-// Twitch ChatBot Base Template
-// ===============================
-
-// Install dependencies first:
-// npm install tmi.js axios dotenv
-
 import tmi from "tmi.js";
-import axios from "axios";
 import dotenv from "dotenv";
+import { getElo } from "./api.js";
+import { getToday } from "./api.js";
+
 dotenv.config();
 
-// ===============================
-// OAuth Token Generation (App Access Token)
-// ===============================
-// Replace these with your actual credentials
-const CLIENT_ID = "YOUR_CLIENT_ID_HERE";
-const CLIENT_SECRET = "YOUR_CLIENT_SECRET_HERE";
+const BOT_USERNAME = process.env.BOT_USERNAME;
+const CHANNEL_NAME = process.env.CHANNEL_NAME;
+const OAUTH_TOKEN = process.env.OAUTH_TOKEN;
 
-// This function fetches an App Access Token from Twitch
-async function getAppToken() {
-    const url = "https://id.twitch.tv/oauth2/token";
+const client = new tmi.Client({
+    identity: {
+        username: BOT_USERNAME,
+        password: OAUTH_TOKEN
+    },
+    channels: [CHANNEL_NAME]
+});
 
-    const params = new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        grant_type: "client_credentials"
-    });
+client.connect().catch(console.error);
 
-    const response = await axios.post(url, params);
-    return response.data.access_token;
-}
+client.on("connected", () => {
+    console.log(`Bot connected as ${BOT_USERNAME}`);
+});
 
-// ===============================
-// Twitch Chat Client Setup
-// ===============================
+client.on("message", async (channel, tags, message, self) => {
+    if (self) return;
 
-// Replace with your bot's username and the channel you want to join
-const BOT_USERNAME = "your_bot_username";
-const CHANNEL_NAME = "channel_to_join";
+    const parts = message.trim().split(" ");
+    const command = parts[0].toLowerCase();
+    const arg = parts[1];
 
-// You will replace this with a real OAuth token later
-let oauthToken = null;
 
-// Connect to Twitch IRC
-async function startBot() {
-    oauthToken = await getAppToken();
+    if (command === "!elo" || "+elo") {
+        const result = await getElo(arg);
 
-    const client = new tmi.Client({
-        identity: {
-            username: BOT_USERNAME,
-            password: `oauth:${oauthToken}`
-        },
-        channels: [CHANNEL_NAME]
-    });
-
-    client.connect();
-
-    // ===============================
-    // Message Listener
-    // ===============================
-    client.on("message", (channel, tags, message, self) => {
-        if (self) return;
-
-        const text = message.trim().toLowerCase();
-
-        if (text === "!hello") {
-            client.say(channel, `Hello @${tags.username}!`);
-        }
-    });
-
-    console.log("Bot is running...");
-}
-
-startBot();
+        client.say(channel, `@${tags.username} ${result}`);
+    }
+    
+});

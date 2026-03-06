@@ -31,21 +31,6 @@ export async function getElo(username) {
     }
 }
 
-export async function getToday(username) {
-    try {
-        const response = await axios.get(`https://mcsrranked.com/api/users/${username}`);
-        let userData = response.data.data;
-        let userStats = userData.statistics.season
-
-
-        return responseMessage;
-    } catch (err) {
-        console.error("API error:");
-        const errMessage = "Please provide a valid Minecraft username: !today <IGN>";
-        return errMessage;
-    }
-}
-
 function timeConversion(time) {
     let minutes = Math.floor(time / 60000);
     let seconds = Math.floor((time  % 60000) / 1000);

@@ -31,6 +31,55 @@ export async function getElo(username) {
     }
 }
 
+export async function getToday(username) {
+    try {
+        const response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=50`);
+        let responseMessage;
+        const twelveHoursAgo = Math.floor((Date.now() - 43200000)/1000);
+        const matchData = response.data.data;
+
+        let pastMatches = [];
+
+        for (let i=0; i < matchData.length; i++){
+            if (matchData[i].date <= twelveHoursAgo){
+                if(pastMatches.length == 0) {
+                    responseMessage = "This player has not played any matches in the last 12 hours";
+                    break;
+                } else {
+                    break;
+                }
+            } else {
+                pastMatches.push(matchData[i]);
+            }
+        }
+
+        let matchPlayers = pastMatches[0].players;
+        let totalMatches = pastMatches.length;
+        let currentElo;
+        let playerUuid
+        for (let i=0; i < matchPlayers.length; i++) {
+            if (matchPlayers[i].nickname == `${username}`) {
+                currentElo = matchPlayers[i].eloRate;
+                playerUuid = matchPlayers[i].uuid
+            }
+        }
+        let eloChange = getEloChange(pastMatches, currentElo, playerUuid);
+        let { totalWins, totalLosses } = getResults(pastMatches, playerUuid);
+        let gamesAverage = getAverage(pastMatches, playerUuid);
+        let totalWinrate = Math.round((totalWins/totalMatches) * 1000) / 10;
+
+        responseMessage = `${username} 12hr Ranked Stats | Elo: ${currentElo} (${eloChange}) | W/L: ${totalWins}/${totalLosses} (${totalWinrate}%) | Average: ${gamesAverage}`;
+
+        console.log("Successful");
+        return responseMessage;
+    } catch (err) {
+        console.error("API error:");
+        console.log(err);
+        const errMessage = "Please provide a valid Minecraft username: !elo <IGN>";
+        return errMessage;
+    }
+}
+
 function timeConversion(time) {
     let minutes = Math.floor(time / 60000);
     let seconds = Math.floor((time  % 60000) / 1000);
@@ -75,4 +124,58 @@ function rankConversion(elo) {
         rank = "Netherite";
     }
     return rank;
+}
+
+function getEloChange(matchList, finalElo, playerUuid) {
+    let lastMatch = matchList[matchList.length-1];
+    let startingElo;
+
+    for (let i=0; i < lastMatch.changes.length; i++) {
+        if(lastMatch.changes[i].uuid == playerUuid) {
+            startingElo = lastMatch.changes[i].eloRate;
+        }
+    }
+    let eloChangeResult = (finalElo - startingElo);
+    let eloChangeConversion;
+    if (eloChangeResult < 0) {
+        eloChangeConversion = `${eloChangeResult}`;
+    } else {
+        eloChangeConversion = `+${eloChangeResult}`;
+    }
+    
+    console.log(eloChangeConversion);
+    return eloChangeConversion;
+}
+
+function getResults(matchList, playerUuid) {
+    let totalWins = 0;
+    let totalLosses = 0;
+    let draws = 0;
+    for (let i=0; i < matchList.length; i++) {
+        if (matchList[i].result.uuid == playerUuid) {
+            totalWins++;
+        } else if (matchList[i].result.uuid == null) {
+            draws++;
+        } else {
+            totalLosses++;
+        }
+    }
+    return { totalWins, totalLosses };
+}
+
+function getAverage(matchList, playerUuid) {
+    let times = 0;
+    let games = 0;
+
+    for (let i = 0; i < matchList.length; i++) {
+        if (matchList[i].result.uuid == playerUuid){
+            if (matchList[i].forfeited == false) {
+                times = times + matchList[i].result.time;
+                games++;
+            }
+        }
+    }
+
+    let averageConverted = timeConversion(times/games);
+    return averageConverted;
 }

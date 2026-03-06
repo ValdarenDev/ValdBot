@@ -1,6 +1,6 @@
 import tmi from "tmi.js";
 import dotenv from "dotenv";
-import { getElo } from "./api.js";
+import { getElo, getToday } from "./api.js";
 
 dotenv.config();
 
@@ -30,8 +30,14 @@ client.on("message", async (channel, tags, message, self) => {
     const arg = parts[1];
 
 
-    if (command === "!elo" || command === "+elo") {
+    if (command === "+elo") {
         const result = await getElo(arg);
+
+        client.say(channel, `/me @${tags.username} ${result}`);
+    }
+
+    if (command === "+today") {
+        const result = await getToday(arg);
 
         client.say(channel, `/me @${tags.username} ${result}`);
     }

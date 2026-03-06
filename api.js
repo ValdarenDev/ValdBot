@@ -143,7 +143,6 @@ function getEloChange(matchList, finalElo, playerUuid) {
         eloChangeConversion = `+${eloChangeResult}`;
     }
     
-    console.log(eloChangeConversion);
     return eloChangeConversion;
 }
 

@@ -53,14 +53,16 @@ export async function getToday(username) {
             }
         }
 
+        console.log(pastMatches);
+
         let matchPlayers = pastMatches[0].players;
         let totalMatches = pastMatches.length;
         let currentElo;
-        let playerUuid
+        let playerUuid;
         for (let i=0; i < matchPlayers.length; i++) {
-            if (matchPlayers[i].nickname == `${username}`) {
+            if ((matchPlayers[i].nickname.toLowerCase()) == username) {
                 currentElo = matchPlayers[i].eloRate;
-                playerUuid = matchPlayers[i].uuid
+                playerUuid = matchPlayers[i].uuid;
             }
         }
         let eloChange = getEloChange(pastMatches, currentElo, playerUuid);

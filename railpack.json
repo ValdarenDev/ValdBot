@@ -1,14 +1,20 @@
 {
   "$schema": "https://schema.railpack.com",
-  "root": ".",
-  "include": ["**/*"],
   "steps": {
     "install": {
       "commands": ["npm install"]
+    },
+    "build": {
+      "inputs": [{ "step": "install" }],
+      "commands": [
+        "mkdir -p dist",
+        "cp -R * dist"
+      ]
     }
   },
   "deploy": {
-    "inputs": [{ "step": "install" }],
-    "startCommand": "npm start"
+    "inputs": [{ "step": "build" }],
+    "startCommand": "npm start",
+    "dir": "dist"
   }
 }

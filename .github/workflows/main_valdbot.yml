@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: read #This is required for actions/checkout
 
@@ -28,7 +28,7 @@ jobs:
           npm install
           npm run build --if-present
           npm run test --if-present
-      
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
@@ -51,13 +51,13 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_65EA28AB4D1544CF997D15BB83DD48AE }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_6805287B55B54B40B00FB985465F77F3 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_10B5920E6D63470EAF2437F74D554431 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_5A69CA66178D404CACA256DDCD033017 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_F157054795EA4C44810C3A6A0BC72C82 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_9CD243F4AB0C468291DA1E5184A76074 }}
 
       - name: 'Deploy to Azure Web App'
-        uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
         with:
           app-name: 'ValdBot'
           slot-name: 'Production'

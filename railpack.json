@@ -4,7 +4,7 @@
     "build": {
       "commands": [
         "mkdir -p dist",
-        "find . -maxdepth 1 ! -name dist ! -name . -exec cp -R {} dist \\;",
+        "for item in *; do [ \"$item\" != \"dist\" ] && cp -R \"$item\" dist/; done",
         "cd dist && npm install"
       ]
     }

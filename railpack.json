@@ -4,7 +4,7 @@
   "include": ["./"],
   "steps": {
     "install": {
-      "commands": ["npm ci"]
+      "commands": ["npm install"]
     }
   },
   "deploy": {

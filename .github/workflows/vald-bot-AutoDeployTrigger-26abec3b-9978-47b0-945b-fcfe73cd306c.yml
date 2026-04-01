@@ -37,9 +37,12 @@ jobs:
         run: |
           docker push $ACR_LOGIN_SERVER/valdbot:latest
 
-      - name: Update Container App to use new image
+      - name: Create or update Container App
         run: |
-          az containerapp update \
-            -n $AZURE_CONTAINERAPP_NAME \
-            -g $AZURE_RESOURCE_GROUP \
-            --image $ACR_LOGIN_SERVER/valdbot:latest
+          az containerapp up \
+            --name $AZURE_CONTAINERAPP_NAME \
+            --resource-group $AZURE_RESOURCE_GROUP \
+            --image $ACR_LOGIN_SERVER/valdbot:latest \
+            --ingress external \
+            --target-port 80 \
+            --location "Central US"

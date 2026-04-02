@@ -51,8 +51,9 @@ client.on("message", async (channel, tags, message, self) => {
     const ign2 = parts[2] || null;
 
     if (command === "+elo") {
+        let target = tags.username;
         let result;
-        const linked = await getLinkedIGN(tags.username);
+        const linked = await getLinkedIGN(target);
 
         if (!ign1) {
             if (!linked) {
@@ -64,12 +65,13 @@ client.on("message", async (channel, tags, message, self) => {
             result = await getElo(ign1);
         }
 
-        client.say(channel, `/me @${tags.username} ${result}`);
+        client.say(channel, `/me @${target} ${result}`);
     }
 
     if (command === "+today") {
+        let target = tags.username;
         let result;
-        const linked = await getLinkedIGN(tags.username);
+        const linked = await getLinkedIGN(target);
 
         if (!ign1) {
             if (!linked) {
@@ -81,20 +83,21 @@ client.on("message", async (channel, tags, message, self) => {
             result = await getToday(ign1);
         }
 
-        client.say(channel, `/me @${tags.username} ${result}`);
+        client.say(channel, `/me @${target} ${result}`);
     }
 
     if (command === "+link") {
+        let target = tags.username;
         let result;
 
         if (!ign1) {
             result = "Please provide an IGN, +link <IGN>";
         } else {
-            result = await linkAccount(tags.username, ign1);
-            await redis.set(`userLinks:${tags.username.toLowerCase()}`, ign1);
+            result = await linkAccount(target, ign1);
+            await redis.set(`userLinks:${target.toLowerCase()}`, ign1);
         }
 
-        client.say(channel, `/me @${tags.username} ${result}`);
+        client.say(channel, `/me @${target} ${result}`);
     }
 
     if (command === "+record") {
@@ -113,4 +116,41 @@ client.on("message", async (channel, tags, message, self) => {
 
         client.say(channel, `/me @${tags.username} ${result}`);
     }
+
+    if (command === "+join") {
+        const target = tags.username.toLowerCase();   // channel to join
+        const chanKey = `channels:${target}`;
+
+        const exists = await redis.exists(chanKey);
+
+        if (!exists) {
+            await redis.set(chanKey, "1"); // value doesn't matter, key name is the channel
+        }
+
+        try {
+            await client.join(target);
+            client.say(channel, `/me @${tags.username} Joined your channel!`);
+            console.log(`Joined channel: ${target}`);
+        } catch (err) {
+            console.error("Join error:", err);
+            client.say(channel, `/me @${tags.username} Failed to join your channel.`);
+        }
+    }
+
+    if (command === "+leave") {
+        const target = tags.username.toLowerCase();
+        const chanKey = `channels:${target}`;
+
+        await redis.del(chanKey);
+
+        try {
+            await client.part(target);
+            client.say(channel, `/me @${tags.username} Left your channel.`);
+            console.log(`Left channel: ${target}`);
+        } catch (err) {
+            console.error("Leave error:", err);
+            client.say(channel, `/me @${tags.username} Failed to leave your channel.`);
+        }
+    }
+
 });

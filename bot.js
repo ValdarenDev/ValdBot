@@ -1,10 +1,12 @@
 import tmi from "tmi.js";
-import dotenv from "dotenv";
 import { getElo, getToday, getRecord } from "./api.js";
 import { linkAccount } from "./link.js";
 import { redis } from "./redis.js";
 
-dotenv.config({ override: false });
+if (process.env.NODE_ENV !== "production") {
+    const dotenv = await import("dotenv");
+    dotenv.config({ override: false });
+}
 
 console.log("Good morning!");
 

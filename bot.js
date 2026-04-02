@@ -118,13 +118,13 @@ client.on("message", async (channel, tags, message, self) => {
     }
 
     if (command === "+join") {
-        const target = tags.username.toLowerCase();   // channel to join
+        const target = tags.username.toLowerCase();
         const chanKey = `channels:${target}`;
 
         const exists = await redis.exists(chanKey);
 
         if (!exists) {
-            await redis.set(chanKey, "1"); // value doesn't matter, key name is the channel
+            await redis.set(chanKey, "1");
         }
 
         try {

@@ -6,6 +6,8 @@ import { redis } from "./redis.js";
 
 dotenv.config();
 
+console.log("Good morning!");
+
 const BOT_USERNAME = process.env.BOT_USERNAME;
 const OAUTH_TOKEN = process.env.OAUTH_TOKEN;
 

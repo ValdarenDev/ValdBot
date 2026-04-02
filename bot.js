@@ -4,7 +4,7 @@ import { getElo, getToday, getRecord } from "./api.js";
 import { linkAccount } from "./link.js";
 import { redis } from "./redis.js";
 
-dotenv.config();
+dotenv.config({ override: false });
 
 console.log("Good morning!");
 

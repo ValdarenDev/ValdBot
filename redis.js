@@ -3,6 +3,9 @@ import { Redis } from "@upstash/redis";
 
 dotenv.config();
 
+console.log("KV_REST_API_URL =", JSON.stringify(process.env.KV_REST_API_URL));
+console.log("KV_REST_API_TOKEN =", JSON.stringify(process.env.KV_REST_API_TOKEN));
+
 export const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
   token: process.env.UPSTASH_REDIS_REST_TOKEN,

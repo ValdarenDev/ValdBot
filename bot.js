@@ -47,10 +47,19 @@ async function getLinkedIGN(username) {
 client.on("message", async (channel, tags, message, self) => {
     if (self) return;
 
-    const parts = message.trim().split(/\s+/); // collapse multiple spaces
-    const command = parts[0].toLowerCase();
-    const ign1 = parts[1] || null;
-    const ign2 = parts[2] || null;
+    // Remove all zero-width / invisible Unicode characters
+const sanitize = str =>
+    (str || "")
+        .replace(/[\u034F\u200B-\u200F\uFEFF]/g, "")
+        .trim();
+
+    const cleanMessage = sanitize(message);
+
+    const parts = cleanMessage.split(/\s+/);
+
+    const command = sanitize(parts[0] || "").toLowerCase();
+    const ign1 = sanitize(parts[1] || "");
+    const ign2 = sanitize(parts[2] || "");
 
     if (command === "+elo") {
         let target = tags.username;
@@ -110,11 +119,13 @@ client.on("message", async (channel, tags, message, self) => {
             if (!linked) {
                 result = "Please use +link <IGN> to link account or use +record <IGN1> <IGN2>";
             } else {
-                result = await getRecord(linked, ign2);
+                result = await getRecord(linked, ign1);
             }
         } else {
             result = await getRecord(ign1, ign2);
         }
+
+        console.log(result);
 
         client.say(channel, `/me @${tags.username} ${result}`);
     }

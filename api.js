@@ -86,15 +86,37 @@ export async function getToday(username) {
 
  export async function getRecord(username1, username2) {
     try {
-        const response = await axios.get(`hhttps://api.mcsrranked.com/users/${username1}/versus/${username2}`);
+        const response = await axios.get(`https://api.mcsrranked.com/users/${username1}/versus/${username2}`);
         let responseMessage;
-        const results = response.data.results;
-        const players = response.data.players;
-        const matchData = results.ranked;
-        const player1 = `continue`;
+        const data = response.data.data;
+        const players = data.players;
+        const matchData = data.results.ranked;
+        let uuid1;
+        let uuid2;
+        let player1;
+        let player2;
+        if (matchData.total == 0) {
+            responseMessage = `These players have no played a match this season.`
+        } else {
+            if(username1.toLowerCase() == players[0].nickname.toLowerCase()) {
+                uuid1 = players[0].uuid;
+                player1 = players[0].nickname;
+                uuid2 = players[1].uuid;
+                player2 = players[1].nickname;
+            } else {
+                uuid1 = players[1].uuid;
+                player1 = players[1].nickname;
+                uuid2 = players[0].uuid;
+                player2 = players[0].nickname;
+            }
+            let player1Wins = matchData[uuid1];
+            let player2Wins = matchData[uuid2];
+            responseMessage = `${player1} ${player1Wins}-${player2Wins} ${player2} | ${matchData.total} total games played this season.`;
+
+            return responseMessage;
+        }
     } catch (err) {
         console.error("API error:");
-        console.log(err);
         const errMessage = "Please provide a valid Minecraft IGNs: +record <IGN1> <IGN2>";
         return errMessage;
     }

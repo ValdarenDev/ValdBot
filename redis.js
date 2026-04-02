@@ -1,4 +1,6 @@
 import { Redis } from "@upstash/redis";
+// const dotenv = await import("dotenv");
+// dotenv.config({ override: false });
 
 console.log("UPSTASH_REDIS_REST_URL =", JSON.stringify(process.env.UPSTASH_REDIS_REST_URL));
 console.log("UPSTASH_REDIS_REST_TOKEN =", JSON.stringify(process.env.UPSTASH_REDIS_REST_TOKEN));

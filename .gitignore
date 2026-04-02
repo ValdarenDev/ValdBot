@@ -1,5 +1,4 @@
 .env
 channels.json
 userLinks.json
-.vercel
 node_modules/

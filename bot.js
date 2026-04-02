@@ -43,10 +43,10 @@ async function getLinkedIGN(username) {
 client.on("message", async (channel, tags, message, self) => {
     if (self) return;
 
-    const parts = message.trim().split(" ");
+    const parts = message.trim().split(/\s+/); // collapse multiple spaces
     const command = parts[0].toLowerCase();
-    const ign1 = parts[1];
-    const ign2 = parts[2];
+    const ign1 = parts[1] || null;
+    const ign2 = parts[2] || null;
 
     if (command === "+elo") {
         let result;

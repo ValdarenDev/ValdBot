@@ -74,7 +74,6 @@ export async function getToday(username) {
 
         responseMessage = `${userName} 12hr Ranked Stats | Elo: ${currentElo} (${eloChange}) | W/L: ${totalWins}/${totalLosses} (${totalWinrate}%) | Average: ${gamesAverage}`;
 
-        console.log("Successful");
         return responseMessage;
     } catch (err) {
         console.error("API error:");
@@ -118,6 +117,38 @@ export async function getToday(username) {
     } catch (err) {
         console.error("API error:");
         const errMessage = "Please provide a valid Minecraft IGNs: +record <IGN1> <IGN2>";
+        return errMessage;
+    }
+ }
+
+ export async function getAverageCommand(username) {
+    try {
+        const allMatches = await getPlayerMatches(username);
+        const res1 = await axios.get(`https://mcsrranked.com/api/users/${username}`)
+        const res2 = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
+        let allTime = res1.data.data.statistics.season.completionTime.ranked;
+        let allCompletions = res1.data.data.statistics.season.completions.ranked;
+        let uuid = res2.data.id;
+        let matchTimeDict = organizeMatches(allMatches, uuid);
+
+        let all_avg = timeConversion(allTime/allCompletions);
+        let dt_avg = timeConversion(matchTimeDict["dt_time"]/matchTimeDict["dt_matches"]);
+        let bt_avg = timeConversion(matchTimeDict["bt_time"]/matchTimeDict["bt_matches"]);
+        let rp_avg = timeConversion(matchTimeDict["rp_time"]/matchTimeDict["rp_matches"]);
+        let v_avg = timeConversion(matchTimeDict["v_time"]/matchTimeDict["v_matches"]);
+        let sw_avg = timeConversion(matchTimeDict["sw_time"]/matchTimeDict["sw_matches"]);
+        let tre_avg = timeConversion(matchTimeDict["tre_time"]/matchTimeDict["tre_matches"]);
+        let sta_avg = timeConversion(matchTimeDict["sta_time"]/matchTimeDict["sta_matches"]);
+        let bri_avg = timeConversion(matchTimeDict["bri_time"]/matchTimeDict["bri_matches"]);
+        let hou_avg = timeConversion(matchTimeDict["hou_time"]/matchTimeDict["hou_matches"]);
+
+        let responseMessage = `Overall Average: ${all_avg} (${allMatches.length} completions) | Village: ${v_avg} ◊ RP: ${rp_avg} ◊ BT: ${bt_avg} ◊ Ship: ${sw_avg} ◊ Temple: ${dt_avg} | Bridge: ${bri_avg} ◊ Treasure: ${tre_avg} ◊ Housing: ${hou_avg} ◊ Stables: ${sta_avg}`;
+
+        return responseMessage;
+        
+    } catch (err) {
+        console.error("API error:");
+        const errMessage = "Please provide a valid Minecraft IGNs: +average <IGN>";
         return errMessage;
     }
  }
@@ -219,4 +250,123 @@ function getAverage(matchList, playerUuid) {
 
     let averageConverted = timeConversion(times/games);
     return averageConverted;
+}
+
+async function getPlayerMatches(username) {
+    const response1 = await axios.get(`https://mcsrranked.com/api/users/${username}`);
+    let totalMatches = response1.data.data.statistics.season.playedMatches.ranked;
+    let matchesLeft = totalMatches;
+    let matchesList = [];
+    let lastMatch = 0;
+
+    if (totalMatches > 100) {
+        let response;
+        while (matchesLeft > 100){
+            if (lastMatch == 0) {
+                response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&excludedecay=true`);
+            } else {
+                response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&before=${lastMatch}&excludedecay=true`);
+            }
+
+            let matches = response.data.data;
+            for (let i=0; i < 100; i++){
+                matchesList.push(matches[i]);
+                if (i === 98) lastMatch = matches[i].id;
+            }
+            matchesLeft -= 100;
+        }
+        response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&before=${lastMatch}&excludedecay=true`);
+        let matches = response.data.data;
+        for (let i=0; i < matchesLeft; i++){
+            if (matches[i] == null) {
+                break;
+            } else {
+                matchesList.push(matches[i]);
+            }
+        }
+        matchesLeft -= matchesLeft;
+    } else {
+        const response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=${totalMatches}&excludedecay=true`);
+        let matches = response.data.data;
+        for (let i=0; i < totalMatches; i++){
+            matchesList.push(matches[i]);
+        }
+    }
+
+    return matchesList;
+
+}
+
+function organizeMatches(matches, uuid) {
+
+    const dict = {
+        "dt_time": 0,
+        "dt_matches": 0,
+        "bt_time": 0,
+        "bt_matches": 0,
+        "rp_time": 0,
+        "rp_matches": 0,
+        "v_time": 0,
+        "v_matches": 0,
+        "sw_time": 0,
+        "sw_matches": 0,
+        "tre_time": 0,
+        "tre_matches": 0,
+        "sta_time": 0,
+        "sta_matches": 0,
+        "bri_time": 0,
+        "bri_matches": 0,
+        "hou_time": 0,
+        "hou_matches": 0
+    };
+
+    for (let i = 0; i < matches.length; i++) {
+        if(matches[i].result.uuid == uuid && matches[i].forfeited == false){
+            let matchTime = matches[i].result.time;
+            switch(matches[i].seedType){
+                case "DESERT_TEMPLE":
+                    dict["dt_time"] = dict["dt_time"] + matchTime;
+                    dict["dt_matches"] = dict["dt_matches"] + 1;
+                    break;
+                case "BURIED_TREASURE":
+                    dict["bt_time"] = dict["bt_time"] + matchTime;
+                    dict["bt_matches"] = dict["bt_matches"] + 1;
+                    break;
+                case "RUINED_PORTAL":
+                    dict["rp_time"] = dict["rp_time"] + matchTime;
+                    dict["rp_matches"] = dict["rp_matches"] + 1;
+                    break;
+                case "VILLAGE":
+                    dict["v_time"] = dict["v_time"] + matchTime;
+                    dict["v_matches"] = dict["v_matches"] + 1;
+                    break;
+                case "SHIPWRECK":
+                    dict["sw_time"] = dict["sw_time"] + matchTime;
+                    dict["sw_matches"] = dict["sw_matches"] + 1;
+                    break;
+            };
+            
+            switch(matches[i].bastionType){
+                case "TREASURE":
+                    dict["tre_time"] = dict["tre_time"] + matchTime;
+                    dict["tre_matches"] = dict["tre_matches"] + 1;
+                    break;
+                case "STABLES":
+                    dict["sta_time"] = dict["sta_time"] + matchTime;
+                    dict["sta_matches"] = dict["sta_matches"] + 1;
+                    break;
+                case "BRIDGE":
+                    dict["bri_time"] = dict["bri_time"] + matchTime;
+                    dict["bri_matches"] = dict["bri_matches"] + 1;
+                    break;
+                case "HOUSING":
+                    dict["hou_time"] = dict["hou_time"] + matchTime;
+                    dict["hou_matches"] = dict["hou_matches"] + 1;
+                    break;
+            };
+        } 
+    }
+
+    return dict;
+
 }

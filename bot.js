@@ -1,5 +1,5 @@
 import tmi from "tmi.js";
-import { getElo, getToday, getRecord } from "./api.js";
+import { getElo, getToday, getRecord, getAverageCommand } from "./api.js";
 import { linkAccount } from "./link.js";
 import { redis } from "./redis.js";
 
@@ -19,6 +19,9 @@ async function loadChannels() {
 }
 
 const channels = await loadChannels();
+
+// When testing
+// const channels = ["valdaren"];
 
 const client = new tmi.Client({
     identity: {
@@ -47,7 +50,6 @@ async function getLinkedIGN(username) {
 client.on("message", async (channel, tags, message, self) => {
     if (self) return;
 
-    // Remove all zero-width / invisible Unicode characters
 const sanitize = str =>
     (str || "")
         .replace(/[\u034F\u200B-\u200F\uFEFF]/g, "")
@@ -123,6 +125,25 @@ const sanitize = str =>
             }
         } else {
             result = await getRecord(ign1, ign2);
+        }
+
+        console.log(result);
+
+        client.say(channel, `/me @${tags.username} ${result}`);
+    }
+
+    if (command === "+average") {
+        let result;
+        const linked = await getLinkedIGN(tags.username);
+
+        if (!ign1) {
+            if (!linked) {
+                result = "Please use +link <IGN> to link account or use +today <IGN>";
+            } else {
+                result = await getAverageCommand(linked);
+            }
+        } else {
+            result = await getAverageCommand(ign1);
         }
 
         console.log(result);

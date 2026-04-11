@@ -3,10 +3,10 @@ import { getElo, getToday, getRecord, getAverageCommand } from "./api.js";
 import { linkAccount } from "./link.js";
 import { redis } from "./redis.js";
 
-if (process.env.NODE_ENV !== "production") {
-    const dotenv = await import("dotenv");
-    dotenv.config({ override: false });
-}
+// if (process.env.NODE_ENV !== "production") {
+//     const dotenv = await import("dotenv");
+//     dotenv.config({ override: false });
+// }
 
 console.log("Good morning!");
 

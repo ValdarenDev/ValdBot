@@ -43,10 +43,8 @@ jobs:
 
       - name: Create or update Container App
         run: |
-          az containerapp up \
+          az containerapp update \
             --name $AZURE_CONTAINERAPP_NAME \
             --resource-group $AZURE_RESOURCE_GROUP \
             --image $ACR_LOGIN_SERVER/valdbot:latest \
-            --ingress disable \
-            --target-port 3000 \
-            --location "Central US"
+            --Ingress disabled

@@ -1,9 +1,9 @@
 import tmi from "tmi.js";
 import { getElo, getToday, getRecord, getAverageCommand } from "./api.js";
-import { linkAccount } from "./link.js";
+// import { linkAccount } from "./link.js"; Local Testing
 import { redis } from "./redis.js";
 
-// if (process.env.NODE_ENV !== "production") {
+// if (process.env.NODE_ENV !== "production") { Local Testing
 //     const dotenv = await import("dotenv");
 //     dotenv.config({ override: false });
 // }
@@ -20,8 +20,7 @@ async function loadChannels() {
 
 const channels = await loadChannels();
 
-// When testing
-// const channels = ["valdaren"];
+// const channels = ["valdaren"]; Local Testing
 
 const client = new tmi.Client({
     identity: {

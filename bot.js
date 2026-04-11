@@ -1,6 +1,6 @@
 import tmi from "tmi.js";
 import { getElo, getToday, getRecord, getAverageCommand } from "./api.js";
-// import { linkAccount } from "./link.js"; Local Testing
+import { linkAccount } from "./link.js";
 import { redis } from "./redis.js";
 
 // if (process.env.NODE_ENV !== "production") { Local Testing

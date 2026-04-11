@@ -48,5 +48,5 @@ jobs:
             --resource-group $AZURE_RESOURCE_GROUP \
             --image $ACR_LOGIN_SERVER/valdbot:latest \
             --ingress internal \
-            --target-port 3000
+            --target-port 3000 \
             --location "Central US"

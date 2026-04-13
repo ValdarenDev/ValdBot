@@ -20,7 +20,7 @@ export async function getElo(username) {
         let userPb = timeConversion(userStats.bestTime.ranked);
         let userAverage = timeConversion(userStats.completionTime.ranked/userCompletions);
 
-        let responseMessage = `${userName} Elo: ${userElo} (${userPeak} Peak) | ${userRank} (#${userPlacement}) | W/L: ${userWins}/${userLosses} (${userWinrate}%) | Matches: ${userMatchesPlayed} Played | Pb: ${userPb} Average: ${userAverage} | Phase Points: ${userPhasePoints}`;
+        let responseMessage = `${userName} Elo: ${userElo} (${userPeak} Peak) ⌇ ${userRank} (#${userPlacement}) ⌇ W/L: ${userWins}/${userLosses} (${userWinrate}%) ⌇ Matches: ${userMatchesPlayed} Played ⌇ Pb: ${userPb} Average: ${userAverage} ⌇ Phase Points: ${userPhasePoints}`;
 
         return responseMessage;
     } catch (err) {
@@ -72,7 +72,7 @@ export async function getToday(username) {
         let totalDraws = totalMatches - (totalWins + totalLosses);
         let totalWinrate = Math.round((totalWins/(totalMatches - totalDraws)) * 1000) / 10;
 
-        responseMessage = `${userName} 12hr Ranked Stats | Elo: ${currentElo} (${eloChange}) | W/L: ${totalWins}/${totalLosses} (${totalWinrate}%) | Average: ${gamesAverage}`;
+        responseMessage = `${userName} 12hr Ranked Stats ⌇ Elo: ${currentElo} (${eloChange}) ⌇ W/L: ${totalWins}/${totalLosses} (${totalWinrate}%) ⌇ Average: ${gamesAverage}`;
 
         return responseMessage;
     } catch (err) {
@@ -110,7 +110,7 @@ export async function getToday(username) {
             }
             let player1Wins = matchData[uuid1];
             let player2Wins = matchData[uuid2];
-            responseMessage = `${player1} ${player1Wins}-${player2Wins} ${player2} | ${matchData.total} total games played this season.`;
+            responseMessage = `${player1} ${player1Wins}-${player2Wins} ${player2} ⌇ ${matchData.total} total games played this season.`;
 
             return responseMessage;
         }
@@ -155,14 +155,14 @@ export async function getAverageCommand(username) {
         const seedAverages = seedInfo
             .map(([p, name]) =>
                 `${name}: ${avg(dict[p + "_time"], dict[p + "_matches"])}`)
-            .join(" • ");
+            .join(" ⋮ ");
 
         const bastionAverages = bastionInfo
             .map(([p, name]) =>
                 `${name}: ${avg(dict[p + "_time"], dict[p + "_matches"])}`)
-            .join(" • ");
+            .join(" ⋮ ");
 
-        return `Overall Average: ${all_avg} (${matches.length} completions) ║ ${seedAverages} ║ ${bastionAverages}`;
+        return `Overall Average: ${all_avg} (${matches.length} completions) ⌇ ${seedAverages} ⌇ ${bastionAverages}`;
 
     } catch (err) {
         console.error("API error:", err);
@@ -206,7 +206,7 @@ export async function getWinrateCommand(username) {
                 const l = dict[p + "_losses"];
                 return `${name}: ${rate(w, l)}`;
             })
-            .join(" • ");
+            .join(" ⋮ ");
 
         const bastionRates = bastionInfo
             .map(([p, name]) => {
@@ -214,7 +214,7 @@ export async function getWinrateCommand(username) {
                 const l = dict[p + "_losses"];
                 return `${name}: ${rate(w, l)}`;
             })
-            .join(" • ");
+            .join(" ⋮ ");
 
         const totalWins =
             seedInfo.reduce((sum, [p]) => sum + dict[p + "_wins"], 0) +
@@ -226,7 +226,7 @@ export async function getWinrateCommand(username) {
 
         const overall = rate(totalWins, totalLosses);
 
-        return `Overall Winrate: ${overall} (${matches.length} matches) ║ ${seedRates} ║ ${bastionRates}`;
+        return `Overall Winrate: ${overall} (${matches.length} matches) ⌇ ${seedRates} ⌇ ${bastionRates}`;
 
     } catch (err) {
         console.error("API error:", err);

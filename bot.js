@@ -115,6 +115,7 @@ const sanitize = str =>
     }
 
     if (command === "+record") {
+        let target = tags.username;
         let result;
 
         if (!ign2) {
@@ -134,6 +135,7 @@ const sanitize = str =>
     }
 
     if (command === "+average") {
+        let target = tags.username;
         let result;
 
         if (!ign1) {
@@ -153,6 +155,7 @@ const sanitize = str =>
     }
 
     if (command === "+winrate") {
+        let target = tags.username;
         let result;
 
         if (!ign1) {

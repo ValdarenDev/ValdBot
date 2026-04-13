@@ -121,37 +121,118 @@ export async function getToday(username) {
     }
  }
 
- export async function getAverageCommand(username) {
+export async function getAverageCommand(username) {
     try {
-        const allMatches = await getPlayerMatches(username);
-        const res1 = await axios.get(`https://mcsrranked.com/api/users/${username}`)
-        const res2 = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
-        let allTime = res1.data.data.statistics.season.completionTime.ranked;
-        let allCompletions = res1.data.data.statistics.season.completions.ranked;
-        let uuid = res2.data.id;
-        let matchTimeDict = organizeMatches(allMatches, uuid);
+        const [matches, userRes] = await Promise.all([
+            getPlayerMatches(username),
+            axios.get(`https://mcsrranked.com/api/users/${username}`)
+        ]);
 
-        let all_avg = timeConversion(allTime/allCompletions);
-        let dt_avg = timeConversion(matchTimeDict["dt_time"]/matchTimeDict["dt_matches"]);
-        let bt_avg = timeConversion(matchTimeDict["bt_time"]/matchTimeDict["bt_matches"]);
-        let rp_avg = timeConversion(matchTimeDict["rp_time"]/matchTimeDict["rp_matches"]);
-        let v_avg = timeConversion(matchTimeDict["v_time"]/matchTimeDict["v_matches"]);
-        let sw_avg = timeConversion(matchTimeDict["sw_time"]/matchTimeDict["sw_matches"]);
-        let tre_avg = timeConversion(matchTimeDict["tre_time"]/matchTimeDict["tre_matches"]);
-        let sta_avg = timeConversion(matchTimeDict["sta_time"]/matchTimeDict["sta_matches"]);
-        let bri_avg = timeConversion(matchTimeDict["bri_time"]/matchTimeDict["bri_matches"]);
-        let hou_avg = timeConversion(matchTimeDict["hou_time"]/matchTimeDict["hou_matches"]);
+        const stats = userRes.data.data.statistics.season;
+        const uuid = userRes.data.data.uuid;
 
-        let responseMessage = `Overall Average: ${all_avg} (${allMatches.length} completions) | Village: ${v_avg} ◊ RP: ${rp_avg} ◊ BT: ${bt_avg} ◊ Ship: ${sw_avg} ◊ Temple: ${dt_avg} | Bridge: ${bri_avg} ◊ Treasure: ${tre_avg} ◊ Housing: ${hou_avg} ◊ Stables: ${sta_avg}`;
+        const dict = organizeMatches(matches, uuid);
 
-        return responseMessage;
-        
+        const avg = (t, c) => c > 0 ? timeConversion(t / c) : "N/A";
+
+        const seedInfo = [
+            ["v",   "Village"],
+            ["rp",  "RP"],
+            ["bt",  "BT"],
+            ["sw",  "Ship"],
+            ["dt",  "Temple"]
+        ];
+
+        const bastionInfo = [
+            ["bri", "Bridge"],
+            ["tre", "Treasure"],
+            ["hou", "Housing"],
+            ["sta", "Stables"]
+        ];
+
+        const all_avg = avg(stats.completionTime.ranked, stats.completions.ranked);
+
+        const seedAverages = seedInfo
+            .map(([p, name]) =>
+                `${name}: ${avg(dict[p + "_time"], dict[p + "_matches"])}`)
+            .join(" • ");
+
+        const bastionAverages = bastionInfo
+            .map(([p, name]) =>
+                `${name}: ${avg(dict[p + "_time"], dict[p + "_matches"])}`)
+            .join(" • ");
+
+        return `Overall Average: ${all_avg} (${matches.length} completions) ║ ${seedAverages} ║ ${bastionAverages}`;
+
     } catch (err) {
-        console.error("API error:");
-        const errMessage = "Please provide a valid Minecraft IGNs: +average <IGN>";
-        return errMessage;
+        console.error("API error:", err);
+        return "Please provide a valid Minecraft IGN: +average <IGN>";
     }
- }
+}
+
+export async function getWinrateCommand(username) {
+    try {
+        const [matches, userRes] = await Promise.all([
+            getPlayerMatches(username),
+            axios.get(`https://mcsrranked.com/api/users/${username}`)
+        ]);
+
+        const uuid = userRes.data.data.uuid;
+        const dict = organizeMatches(matches, uuid);
+
+        const rate = (w, l) => {
+            const total = w + l;
+            return total > 0 ? ((w / total) * 100).toFixed(1) + "%" : "N/A";
+        };
+
+        const seedInfo = [
+            ["v",   "Village"],
+            ["rp",  "RP"],
+            ["bt",  "BT"],
+            ["sw",  "Ship"],
+            ["dt",  "Temple"]
+        ];
+
+        const bastionInfo = [
+            ["bri", "Bridge"],
+            ["tre", "Treasure"],
+            ["hou", "Housing"],
+            ["sta", "Stables"]
+        ];
+
+        const seedRates = seedInfo
+            .map(([p, name]) => {
+                const w = dict[p + "_wins"];
+                const l = dict[p + "_losses"];
+                return `${name}: ${rate(w, l)}`;
+            })
+            .join(" • ");
+
+        const bastionRates = bastionInfo
+            .map(([p, name]) => {
+                const w = dict[p + "_wins"];
+                const l = dict[p + "_losses"];
+                return `${name}: ${rate(w, l)}`;
+            })
+            .join(" • ");
+
+        const totalWins =
+            seedInfo.reduce((sum, [p]) => sum + dict[p + "_wins"], 0) +
+            bastionInfo.reduce((sum, [p]) => sum + dict[p + "_wins"], 0);
+
+        const totalLosses =
+            seedInfo.reduce((sum, [p]) => sum + dict[p + "_losses"], 0) +
+            bastionInfo.reduce((sum, [p]) => sum + dict[p + "_losses"], 0);
+
+        const overall = rate(totalWins, totalLosses);
+
+        return `Overall Winrate: ${overall} (${matches.length} matches) ║ ${seedRates} ║ ${bastionRates}`;
+
+    } catch (err) {
+        console.error("API error:", err);
+        return "Please provide a valid Minecraft IGN: +winrate <IGN>";
+    }
+}
 
 function timeConversion(time) {
     let minutes = Math.floor(time / 60000);
@@ -253,120 +334,93 @@ function getAverage(matchList, playerUuid) {
 }
 
 async function getPlayerMatches(username) {
-    const response1 = await axios.get(`https://mcsrranked.com/api/users/${username}`);
-    let totalMatches = response1.data.data.statistics.season.playedMatches.ranked;
-    let matchesLeft = totalMatches;
-    let matchesList = [];
-    let lastMatch = 0;
+    const userRes = await axios.get(`https://mcsrranked.com/api/users/${username}`);
+    const totalMatches = userRes.data.data.statistics.season.playedMatches.ranked;
 
-    if (totalMatches > 100) {
-        let response;
-        while (matchesLeft > 100){
-            if (lastMatch == 0) {
-                response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&excludedecay=true`);
-            } else {
-                response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&before=${lastMatch}&excludedecay=true`);
-            }
+    const matchesList = [];
+    let before = null;
 
-            let matches = response.data.data;
-            for (let i=0; i < 100; i++){
-                matchesList.push(matches[i]);
-                if (i === 98) lastMatch = matches[i].id;
-            }
-            matchesLeft -= 100;
+    while (matchesList.length < totalMatches) {
+        const url = before
+            ? `https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&before=${before}&excludedecay=true`
+            : `https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&excludedecay=true`;
+
+        const res = await axios.get(url);
+        const batch = res.data.data;
+
+        if (!batch || batch.length === 0) break;
+
+        for (const m of batch) {
+            matchesList.push({
+                id: m.id,
+                seedType: m.seedType,
+                bastionType: m.bastionType,
+                forfeited: m.forfeited,
+                result: {
+                    uuid: m.result.uuid,
+                    time: m.result.time
+                }
+            });
         }
-        response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&before=${lastMatch}&excludedecay=true`);
-        let matches = response.data.data;
-        for (let i=0; i < matchesLeft; i++){
-            if (matches[i] == null) {
-                break;
-            } else {
-                matchesList.push(matches[i]);
-            }
-        }
-        matchesLeft -= matchesLeft;
-    } else {
-        const response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=${totalMatches}&excludedecay=true`);
-        let matches = response.data.data;
-        for (let i=0; i < totalMatches; i++){
-            matchesList.push(matches[i]);
-        }
+
+        before = batch[batch.length - 1].id;
+
+        if (batch.length < 100) break;
     }
 
     return matchesList;
-
 }
 
 function organizeMatches(matches, uuid) {
-
-    const dict = {
-        "dt_time": 0,
-        "dt_matches": 0,
-        "bt_time": 0,
-        "bt_matches": 0,
-        "rp_time": 0,
-        "rp_matches": 0,
-        "v_time": 0,
-        "v_matches": 0,
-        "sw_time": 0,
-        "sw_matches": 0,
-        "tre_time": 0,
-        "tre_matches": 0,
-        "sta_time": 0,
-        "sta_matches": 0,
-        "bri_time": 0,
-        "bri_matches": 0,
-        "hou_time": 0,
-        "hou_matches": 0
+    const seedMap = {
+        DESERT_TEMPLE: "dt",
+        BURIED_TREASURE: "bt",
+        RUINED_PORTAL: "rp",
+        VILLAGE: "v",
+        SHIPWRECK: "sw"
     };
 
-    for (let i = 0; i < matches.length; i++) {
-        if(matches[i].result.uuid == uuid && matches[i].forfeited == false){
-            let matchTime = matches[i].result.time;
-            switch(matches[i].seedType){
-                case "DESERT_TEMPLE":
-                    dict["dt_time"] = dict["dt_time"] + matchTime;
-                    dict["dt_matches"] = dict["dt_matches"] + 1;
-                    break;
-                case "BURIED_TREASURE":
-                    dict["bt_time"] = dict["bt_time"] + matchTime;
-                    dict["bt_matches"] = dict["bt_matches"] + 1;
-                    break;
-                case "RUINED_PORTAL":
-                    dict["rp_time"] = dict["rp_time"] + matchTime;
-                    dict["rp_matches"] = dict["rp_matches"] + 1;
-                    break;
-                case "VILLAGE":
-                    dict["v_time"] = dict["v_time"] + matchTime;
-                    dict["v_matches"] = dict["v_matches"] + 1;
-                    break;
-                case "SHIPWRECK":
-                    dict["sw_time"] = dict["sw_time"] + matchTime;
-                    dict["sw_matches"] = dict["sw_matches"] + 1;
-                    break;
-            };
-            
-            switch(matches[i].bastionType){
-                case "TREASURE":
-                    dict["tre_time"] = dict["tre_time"] + matchTime;
-                    dict["tre_matches"] = dict["tre_matches"] + 1;
-                    break;
-                case "STABLES":
-                    dict["sta_time"] = dict["sta_time"] + matchTime;
-                    dict["sta_matches"] = dict["sta_matches"] + 1;
-                    break;
-                case "BRIDGE":
-                    dict["bri_time"] = dict["bri_time"] + matchTime;
-                    dict["bri_matches"] = dict["bri_matches"] + 1;
-                    break;
-                case "HOUSING":
-                    dict["hou_time"] = dict["hou_time"] + matchTime;
-                    dict["hou_matches"] = dict["hou_matches"] + 1;
-                    break;
-            };
-        } 
+    const bastionMap = {
+        TREASURE: "tre",
+        STABLES: "sta",
+        BRIDGE: "bri",
+        HOUSING: "hou"
+    };
+
+    const prefixes = ["dt","bt","rp","v","sw","tre","sta","bri","hou"];
+    const dict = {};
+
+    for (const p of prefixes) {
+        dict[p + "_time"] = 0;
+        dict[p + "_matches"] = 0;
+        dict[p + "_wins"] = 0;
+        dict[p + "_losses"] = 0;
+        dict[p + "_draws"] = 0;
+    }
+
+    for (const match of matches) {
+        const seedPrefix = seedMap[match.seedType];
+        const bastionPrefix = bastionMap[match.bastionType];
+
+        const isWin = match.result.uuid === uuid;
+        const isDraw = match.result.uuid === null;
+        const outcome = isWin ? "wins" : isDraw ? "draws" : "losses";
+
+        if (seedPrefix) dict[seedPrefix + "_" + outcome]++;
+        if (bastionPrefix) dict[bastionPrefix + "_" + outcome]++;
+
+        if (isWin && !match.forfeited) {
+            const t = match.result.time;
+            if (seedPrefix) {
+                dict[seedPrefix + "_time"] += t;
+                dict[seedPrefix + "_matches"]++;
+            }
+            if (bastionPrefix) {
+                dict[bastionPrefix + "_time"] += t;
+                dict[bastionPrefix + "_matches"]++;
+            }
+        }
     }
 
     return dict;
-
 }

@@ -1,9 +1,10 @@
 import tmi from "tmi.js";
-import { getElo, getToday, getRecord, getAverageCommand } from "./api.js";
+import { getElo, getToday, getRecord, getAverageCommand, getWinrateCommand } from "./api.js";
 import { linkAccount } from "./link.js";
 import { redis } from "./redis.js";
 
-// if (process.env.NODE_ENV !== "production") { Local Testing
+ // Local Testing
+// if (process.env.NODE_ENV !== "production") {
 //     const dotenv = await import("dotenv");
 //     dotenv.config({ override: false });
 // }
@@ -20,7 +21,8 @@ async function loadChannels() {
 
 const channels = await loadChannels();
 
-// const channels = ["valdaren"]; Local Testing
+ // Local Testing
+// const channels = ["valdaren"];
 
 const client = new tmi.Client({
     identity: {
@@ -65,9 +67,9 @@ const sanitize = str =>
     if (command === "+elo") {
         let target = tags.username;
         let result;
-        const linked = await getLinkedIGN(target);
-
+        
         if (!ign1) {
+            const linked = await getLinkedIGN(target);
             if (!linked) {
                 result = "Please use +link <IGN> to link account or use +elo <IGN>";
             } else {
@@ -83,9 +85,9 @@ const sanitize = str =>
     if (command === "+today") {
         let target = tags.username;
         let result;
-        const linked = await getLinkedIGN(target);
 
         if (!ign1) {
+            const linked = await getLinkedIGN(target);
             if (!linked) {
                 result = "Please use +link <IGN> to link account or use +today <IGN>";
             } else {
@@ -114,9 +116,9 @@ const sanitize = str =>
 
     if (command === "+record") {
         let result;
-        const linked = await getLinkedIGN(tags.username);
 
         if (!ign2) {
+            const linked = await getLinkedIGN(target);
             if (!linked) {
                 result = "Please use +link <IGN> to link account or use +record <IGN1> <IGN2>";
             } else {
@@ -133,9 +135,9 @@ const sanitize = str =>
 
     if (command === "+average") {
         let result;
-        const linked = await getLinkedIGN(tags.username);
 
         if (!ign1) {
+            const linked = await getLinkedIGN(target);
             if (!linked) {
                 result = "Please use +link <IGN> to link account or use +today <IGN>";
             } else {
@@ -143,6 +145,25 @@ const sanitize = str =>
             }
         } else {
             result = await getAverageCommand(ign1);
+        }
+
+        console.log(result);
+
+        client.say(channel, `/me @${tags.username} ${result}`);
+    }
+
+    if (command === "+winrate") {
+        let result;
+
+        if (!ign1) {
+            const linked = await getLinkedIGN(target);
+            if (!linked) {
+                result = "Please use +link <IGN> to link account or use +today <IGN>";
+            } else {
+                result = await getWinrateCommand(linked);
+            }
+        } else {
+            result = await getWinrateCommand(ign1);
         }
 
         console.log(result);

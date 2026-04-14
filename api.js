@@ -124,8 +124,8 @@ export async function getAverageCommand(username) {
         ]);
 
         const stats = userRes.data.data.statistics.season;
-        const uuid = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
-
+        const res = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
+        const uuid = res.data.id;
         const dict = organizeMatches(matches, uuid);
 
         const avg = (t, c) => c > 0 ? timeConversion(t / c) : "N/A";
@@ -172,7 +172,8 @@ export async function getWinrateCommand(username) {
             axios.get(`https://mcsrranked.com/api/users/${username}`)
         ]);
 
-        const uuid = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
+        const res = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
+        const uuid = res.data.id;
         const dict = organizeMatches(matches, uuid);
 
         const rate = (w, l) => {
@@ -238,8 +239,7 @@ export async function getLastCommand(username, quantity) {
         }
 
         const res = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
-        const uuid = res.id;
-
+        const uuid = res.data.id;
         const dict = organizeMatches(matches, uuid);
 
         const avg = (t, c) => c > 0 ? timeConversion(t / c) : "N/A";

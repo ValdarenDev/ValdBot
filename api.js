@@ -20,14 +20,12 @@ export async function getElo(username) {
         let userPb = timeConversion(userStats.bestTime.ranked);
         let userAverage = timeConversion(userStats.completionTime.ranked/userCompletions);
 
-        let responseMessage = `${userName} Elo: ${userElo} (${userPeak} Peak) ⌇ ${userRank} (#${userPlacement}) ⌇ W/L: ${userWins}/${userLosses} (${userWinrate}%) ⌇ Matches: ${userMatchesPlayed} Played ⌇ Pb: ${userPb} Average: ${userAverage} ⌇ Phase Points: ${userPhasePoints}`;
+        let responseMessage = `${userName} Elo: ${userElo} (${userPeak} Peak) ❚ ${userRank} (#${userPlacement}) ❚ W/L: ${userWins}/${userLosses} (${userWinrate}%) ❚ Matches: ${userMatchesPlayed} Played ❚ Pb: ${userPb} Average: ${userAverage} ❚ Phase Points: ${userPhasePoints}`;
 
         return responseMessage;
     } catch (err) {
-        console.error("API error:");
-        console.log(err);
-        const errMessage = "Please provide a valid Minecraft username: +elo <IGN>";
-        return errMessage;
+        console.error("API error:", err);
+        return "Please provide a valid Minecraft IGN: +elo <IGN>";
     }
 }
 
@@ -72,14 +70,12 @@ export async function getToday(username) {
         let totalDraws = totalMatches - (totalWins + totalLosses);
         let totalWinrate = Math.round((totalWins/(totalMatches - totalDraws)) * 1000) / 10;
 
-        responseMessage = `${userName} 12hr Ranked Stats ⌇ Elo: ${currentElo} (${eloChange}) ⌇ W/L: ${totalWins}/${totalLosses} (${totalWinrate}%) ⌇ Average: ${gamesAverage}`;
+        responseMessage = `${userName} 12hr Ranked Stats ❚ Elo: ${currentElo} (${eloChange}) ❚ W/L: ${totalWins}/${totalLosses} (${totalWinrate}%) ❚ Average: ${gamesAverage}`;
 
         return responseMessage;
     } catch (err) {
-        console.error("API error:");
-        console.log(err);
-        const errMessage = "Please provide a valid Minecraft username: +today <IGN>";
-        return errMessage;
+        console.error("API error:", err);
+        return "Please provide a valid Minecraft IGN: +today <IGN>";
     }
 }
 
@@ -110,14 +106,13 @@ export async function getToday(username) {
             }
             let player1Wins = matchData[uuid1];
             let player2Wins = matchData[uuid2];
-            responseMessage = `${player1} ${player1Wins}-${player2Wins} ${player2} ⌇ ${matchData.total} total games played this season.`;
+            responseMessage = `${player1} ${player1Wins}-${player2Wins} ${player2} ❚ ${matchData.total} total games played this season.`;
 
             return responseMessage;
         }
     } catch (err) {
-        console.error("API error:");
-        const errMessage = "Please provide a valid Minecraft IGNs: +record <IGN1> <IGN2>";
-        return errMessage;
+        console.error("API error:", err);
+        return "Please provide a valid Minecraft IGNs: +record <IGN1> <IGN2>";
     }
  }
 
@@ -162,7 +157,7 @@ export async function getAverageCommand(username) {
                 `${name}: ${avg(dict[p + "_time"], dict[p + "_matches"])}`)
             .join(" ⋮ ");
 
-        return `Overall Average: ${all_avg} (${matches.length} completions) ⌇ ${seedAverages} ⌇ ${bastionAverages}`;
+        return `Overall Average: ${all_avg} (${matches.length} completions) ❚ ${seedAverages} ❚ ${bastionAverages}`;
 
     } catch (err) {
         console.error("API error:", err);
@@ -226,11 +221,87 @@ export async function getWinrateCommand(username) {
 
         const overall = rate(totalWins, totalLosses);
 
-        return `Overall Winrate: ${overall} (${matches.length} matches) ⌇ ${seedRates} ⌇ ${bastionRates}`;
+        return `Overall Winrate: ${overall} (${matches.length} matches) ❚ ${seedRates} ❚ ${bastionRates}`;
 
     } catch (err) {
         console.error("API error:", err);
         return "Please provide a valid Minecraft IGN: +winrate <IGN>";
+    }
+}
+
+export async function getLastCommand(username, quantity) {
+    try {
+        const matches = await getPlayerMatches(username, quantity);
+
+        if (!matches || matches.length === 0) {
+            return `No matches found for ${username}.`;
+        }
+
+        const uuid = matches[0].result.uuid;
+
+        const dict = organizeMatches(matches, uuid);
+
+        const avg = (t, c) => c > 0 ? timeConversion(t / c) : "N/A";
+        const rate = (w, l) => {
+            const total = w + l;
+            return total > 0 ? ((w / total) * 100).toFixed(1) + "%" : "N/A";
+        };
+
+        // Pretty names
+        const seedInfo = [
+            ["v",   "Village"],
+            ["rp",  "RP"],
+            ["bt",  "BT"],
+            ["sw",  "Ship"],
+            ["dt",  "Temple"]
+        ];
+
+        const bastionInfo = [
+            ["bri", "Bridge"],
+            ["tre", "Treasure"],
+            ["hou", "Housing"],
+            ["sta", "Stables"]
+        ];
+
+        const seedStats = seedInfo.map(([p, name]) => {
+            const a = avg(dict[p + "_time"], dict[p + "_matches"]);
+            const w = dict[p + "_wins"];
+            const l = dict[p + "_losses"];
+            const r = rate(w, l);
+            return `${name}: ${a} (${r})`;
+        }).join(" ⋮ ");
+
+        const bastionStats = bastionInfo.map(([p, name]) => {
+            const a = avg(dict[p + "_time"], dict[p + "_matches"]);
+            const w = dict[p + "_wins"];
+            const l = dict[p + "_losses"];
+            const r = rate(w, l);
+            return `${name}: ${a} (${r})`;
+        }).join(" ⋮ ");
+
+        const totalWins =
+            seedInfo.reduce((s, [p]) => s + dict[p + "_wins"], 0) +
+            bastionInfo.reduce((s, [p]) => s + dict[p + "_wins"], 0);
+
+        const totalLosses =
+            seedInfo.reduce((s, [p]) => s + dict[p + "_losses"], 0) +
+            bastionInfo.reduce((s, [p]) => s + dict[p + "_losses"], 0);
+
+        const overallRate = rate(totalWins, totalLosses);
+
+        const totalTime = seedInfo.reduce((s, [p]) => s + dict[p + "_time"], 0) +
+            bastionInfo.reduce((s, [p]) => s + dict[p + "_time"], 0);
+
+        const totalCompletions = seedInfo.reduce((s, [p]) => s + dict[p + "_matches"], 0) +
+            bastionInfo.reduce((s, [p]) => s + dict[p + "_matches"], 0);
+
+        const overallAvg = avg(totalTime, totalCompletions);
+
+        return `Last ${matches.length} games: ${overallAvg} (${overallRate}) ❚ ${seedStats} ❚ ${bastionStats}`;
+
+    } catch (err) {
+        console.error("API error:", err);
+        return "Please provide a valid Minecraft IGN: +last <IGN> <Quantity>";
     }
 }
 
@@ -243,41 +314,29 @@ function timeConversion(time) {
 }
 
 function rankConversion(elo) {
-    let rank;
-    if (elo < 400) {
-        rank = "Coal I";
-    } else if (elo < 500) {
-        rank = "Coal II";
-    } else if (elo < 600) {
-        rank = "Coal III";
-    } else if (elo < 700) {
-        rank = "Iron I";
-    } else if (elo < 800) {
-        rank = "Iron II";
-    } else if (elo < 900) {
-        rank = "Iron III";
-    } else if (elo < 1000) {
-        rank = "Gold I";
-    } else if (elo < 1100) {
-        rank = "Gold II";
-    } else if (elo < 1200) {
-        rank = "Gold III";
-    } else if (elo < 1300) {
-        rank = "Emerald I";
-    } else if (elo < 1400) {
-        rank = "Emerald II";
-    } else if (elo < 1500) {
-        rank = "Emerald III";
-    } else if (elo < 1650) {
-        rank = "Diamond I";
-    } else if (elo < 1800) {
-        rank = "Diamond II";
-    } else if (elo < 2000) {
-        rank = "Diamond III";
-    } else {
-        rank = "Netherite";
+    const ranks = [
+        [400,  "Coal I"],
+        [500,  "Coal II"],
+        [600,  "Coal III"],
+        [700,  "Iron I"],
+        [800,  "Iron II"],
+        [900,  "Iron III"],
+        [1000, "Gold I"],
+        [1100, "Gold II"],
+        [1200, "Gold III"],
+        [1300, "Emerald I"],
+        [1400, "Emerald II"],
+        [1500, "Emerald III"],
+        [1650, "Diamond I"],
+        [1800, "Diamond II"],
+        [2000, "Diamond III"]
+    ];
+
+    for (const [limit, name] of ranks) {
+        if (elo < limit) return name;
     }
-    return rank;
+
+    return "Netherite";
 }
 
 function getEloChange(matchList, finalElo, playerUuid) {
@@ -333,9 +392,15 @@ function getAverage(matchList, playerUuid) {
     return averageConverted;
 }
 
-async function getPlayerMatches(username) {
-    const userRes = await axios.get(`https://mcsrranked.com/api/users/${username}`);
-    const totalMatches = userRes.data.data.statistics.season.playedMatches.ranked;
+async function getPlayerMatches(username, quantity = null) {
+    let totalMatches;
+
+    if (quantity == null) {
+        const userRes = await axios.get(`https://mcsrranked.com/api/users/${username}`);
+        totalMatches = userRes.data.data.statistics.season.playedMatches.ranked;
+    } else {
+        totalMatches = quantity;
+    }
 
     const matchesList = [];
     let before = null;
@@ -361,6 +426,8 @@ async function getPlayerMatches(username) {
                     time: m.result.time
                 }
             });
+
+            if (matchesList.length >= totalMatches) break;
         }
 
         before = batch[batch.length - 1].id;

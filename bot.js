@@ -1,28 +1,28 @@
 import tmi from "tmi.js";
-import { getElo, getToday, getRecord, getAverageCommand, getWinrateCommand } from "./api.js";
+import { getElo, getToday, getRecord, getAverageCommand, getWinrateCommand, getLastCommand } from "./api.js";
 import { linkAccount } from "./link.js";
 import { redis } from "./redis.js";
 
  // Local Testing
-// if (process.env.NODE_ENV !== "production") {
-//     const dotenv = await import("dotenv");
-//     dotenv.config({ override: false });
-// }
+if (process.env.NODE_ENV !== "production") {
+    const dotenv = await import("dotenv");
+    dotenv.config({ override: false });
+}
 
 console.log("Good morning!");
 
 const BOT_USERNAME = process.env.BOT_USERNAME;
 const OAUTH_TOKEN = process.env.OAUTH_TOKEN;
 
-async function loadChannels() {
-    const keys = await redis.keys("channels:*");
-    return keys.map(k => k.replace("channels:", ""));
-}
+// async function loadChannels() {
+//     const keys = await redis.keys("channels:*");
+//     return keys.map(k => k.replace("channels:", ""));
+// }
 
-const channels = await loadChannels();
+// const channels = await loadChannels();
 
  // Local Testing
-// const channels = ["valdaren"];
+const channels = ["valdaren"];
 
 const client = new tmi.Client({
     identity: {
@@ -61,14 +61,14 @@ const sanitize = str =>
     const parts = cleanMessage.split(/\s+/);
 
     const command = sanitize(parts[0] || "").toLowerCase();
-    const ign1 = sanitize(parts[1] || "");
-    const ign2 = sanitize(parts[2] || "");
+    const arg1 = sanitize(parts[1] || "");
+    const arg2 = sanitize(parts[2] || "");
 
     if (command === "+elo") {
         let target = tags.username;
         let result;
         
-        if (!ign1) {
+        if (!arg1) {
             const linked = await getLinkedIGN(target);
             if (!linked) {
                 result = "Please use +link <IGN> to link account or use +elo <IGN>";
@@ -76,7 +76,7 @@ const sanitize = str =>
                 result = await getElo(linked);
             }
         } else {
-            result = await getElo(ign1);
+            result = await getElo(arg1);
         }
 
         client.say(channel, `/me @${target} ${result}`);
@@ -86,7 +86,7 @@ const sanitize = str =>
         let target = tags.username;
         let result;
 
-        if (!ign1) {
+        if (!arg1) {
             const linked = await getLinkedIGN(target);
             if (!linked) {
                 result = "Please use +link <IGN> to link account or use +today <IGN>";
@@ -94,7 +94,7 @@ const sanitize = str =>
                 result = await getToday(linked);
             }
         } else {
-            result = await getToday(ign1);
+            result = await getToday(arg1);
         }
 
         client.say(channel, `/me @${target} ${result}`);
@@ -104,11 +104,11 @@ const sanitize = str =>
         let target = tags.username;
         let result;
 
-        if (!ign1) {
+        if (!arg1) {
             result = "Please provide an IGN, +link <IGN>";
         } else {
-            result = await linkAccount(target, ign1);
-            await redis.set(`userLinks:${target.toLowerCase()}`, ign1);
+            result = await linkAccount(target, arg1);
+            await redis.set(`userLinks:${target.toLowerCase()}`, arg1);
         }
 
         client.say(channel, `/me @${target} ${result}`);
@@ -118,15 +118,17 @@ const sanitize = str =>
         let target = tags.username;
         let result;
 
-        if (!ign2) {
+        if (!arg1) result = "Please use +link <IGN> to link account or use +record <IGN1> <IGN2>";
+
+        if (!arg2) {
             const linked = await getLinkedIGN(target);
             if (!linked) {
                 result = "Please use +link <IGN> to link account or use +record <IGN1> <IGN2>";
             } else {
-                result = await getRecord(linked, ign1);
+                result = await getRecord(linked, arg1);
             }
         } else {
-            result = await getRecord(ign1, ign2);
+            result = await getRecord(arg1, arg2);
         }
 
         console.log(result);
@@ -138,7 +140,7 @@ const sanitize = str =>
         let target = tags.username;
         let result;
 
-        if (!ign1) {
+        if (!arg1) {
             const linked = await getLinkedIGN(target);
             if (!linked) {
                 result = "Please use +link <IGN> to link account or use +today <IGN>";
@@ -146,7 +148,7 @@ const sanitize = str =>
                 result = await getAverageCommand(linked);
             }
         } else {
-            result = await getAverageCommand(ign1);
+            result = await getAverageCommand(arg1);
         }
 
         console.log(result);
@@ -158,7 +160,7 @@ const sanitize = str =>
         let target = tags.username;
         let result;
 
-        if (!ign1) {
+        if (!arg1) {
             const linked = await getLinkedIGN(target);
             if (!linked) {
                 result = "Please use +link <IGN> to link account or use +today <IGN>";
@@ -166,10 +168,50 @@ const sanitize = str =>
                 result = await getWinrateCommand(linked);
             }
         } else {
-            result = await getWinrateCommand(ign1);
+            result = await getWinrateCommand(arg1);
         }
 
         console.log(result);
+
+        client.say(channel, `/me @${tags.username} ${result}`);
+    }
+
+    if (command === "+last") {
+        let target = tags.username;
+        let result;
+
+        let ign = arg1?.trim();
+        let quantity = arg2 ? Number(arg2) : null;
+
+        if (ign && Number.isInteger(Number(ign))) {
+            quantity = Number(ign);
+            ign = null;
+        }
+
+        if (!quantity || !Number.isInteger(quantity) || quantity <= 0) {
+            if (quantity <= 0) {
+                result = "Need to provide <Quantity> greater than 0";
+                client.say(channel, `/me @${tags.username} ${result}`);
+                return;
+            }
+            result = "Please use +link <IGN> to link your account or use +last <IGN> <Quantity>";
+            client.say(channel, `/me @${tags.username} ${result}`);
+            return;
+        }
+
+        if (!ign) {
+            const linked = await getLinkedIGN(target);
+
+            if (!linked) {
+                result = "Please use +link <IGN> to link your account or use +last <IGN> <Quantity>";
+            } else {
+                result = await getLastCommand(linked, quantity);
+            }
+        }
+
+        else {
+            result = await getLastCommand(ign, quantity);
+        }
 
         client.say(channel, `/me @${tags.username} ${result}`);
     }

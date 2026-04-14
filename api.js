@@ -237,7 +237,8 @@ export async function getLastCommand(username, quantity) {
             return `No matches found for ${username}.`;
         }
 
-        const uuid = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
+        const res = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
+        const uuid = res.id;
 
         const dict = organizeMatches(matches, uuid);
 

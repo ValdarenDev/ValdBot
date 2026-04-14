@@ -297,7 +297,7 @@ export async function getLastCommand(username, quantity) {
 
         const overallAvg = avg(totalTime, totalCompletions);
 
-        return `Last ${matches.length} games: ${overallAvg} (${overallRate}) ❚ ${seedStats} ❚ ${bastionStats}`;
+        return `Last ${matches.length} games: Overall: ${overallAvg} (${overallRate}) ❚ ${seedStats} ❚ ${bastionStats}`;
 
     } catch (err) {
         console.error("API error:", err);

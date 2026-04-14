@@ -3,26 +3,26 @@ import { getElo, getToday, getRecord, getAverageCommand, getWinrateCommand, getL
 import { linkAccount } from "./link.js";
 import { redis } from "./redis.js";
 
- // Local Testing
-if (process.env.NODE_ENV !== "production") {
-    const dotenv = await import("dotenv");
-    dotenv.config({ override: false });
-}
+// Local Testing
+// if (process.env.NODE_ENV !== "production") {
+//     const dotenv = await import("dotenv");
+//     dotenv.config({ override: false });
+// }
 
 console.log("Good morning!");
 
 const BOT_USERNAME = process.env.BOT_USERNAME;
 const OAUTH_TOKEN = process.env.OAUTH_TOKEN;
 
-// async function loadChannels() {
-//     const keys = await redis.keys("channels:*");
-//     return keys.map(k => k.replace("channels:", ""));
-// }
+async function loadChannels() {
+    const keys = await redis.keys("channels:*");
+    return keys.map(k => k.replace("channels:", ""));
+}
 
-// const channels = await loadChannels();
+const channels = await loadChannels();
 
- // Local Testing
-const channels = ["valdaren"];
+// Local Testing
+// const channels = ["valdaren"];
 
 const client = new tmi.Client({
     identity: {

@@ -124,7 +124,7 @@ export async function getAverageCommand(username) {
         ]);
 
         const stats = userRes.data.data.statistics.season;
-        const uuid = userRes.data.data.uuid;
+        const uuid = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
 
         const dict = organizeMatches(matches, uuid);
 
@@ -172,7 +172,7 @@ export async function getWinrateCommand(username) {
             axios.get(`https://mcsrranked.com/api/users/${username}`)
         ]);
 
-        const uuid = userRes.data.data.uuid;
+        const uuid = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
         const dict = organizeMatches(matches, uuid);
 
         const rate = (w, l) => {
@@ -237,7 +237,7 @@ export async function getLastCommand(username, quantity) {
             return `No matches found for ${username}.`;
         }
 
-        const uuid = matches[0].result.uuid;
+        const uuid = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
 
         const dict = organizeMatches(matches, uuid);
 
@@ -247,7 +247,6 @@ export async function getLastCommand(username, quantity) {
             return total > 0 ? ((w / total) * 100).toFixed(1) + "%" : "N/A";
         };
 
-        // Pretty names
         const seedInfo = [
             ["v",   "Village"],
             ["rp",  "RP"],

@@ -82,31 +82,21 @@ export async function getToday(username) {
  export async function getRecord(username1, username2) {
     try {
         const response = await axios.get(`https://api.mcsrranked.com/users/${username1}/versus/${username2}`);
+        const res1 = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username1}`);
+        const res2 = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username2}`);
+        const uuid1 = res1.data.id;
+        const uuid2 = res2.data.id;
         let responseMessage;
-        const data = response.data.data;
-        const players = data.players;
-        const matchData = data.results.ranked;
-        let uuid1;
-        let uuid2;
-        let player1;
-        let player2;
-        if (matchData.total == 0) {
-            responseMessage = `These players have no played a match this season.`
+        const matchData = response.data.data.results.ranked;
+        console.log(matchData.total);
+        if (matchData.total == 0 || matchData.total == null) {
+            responseMessage = `These players have not played a match this season.`
+
+            return responseMessage;
         } else {
-            if(username1.toLowerCase() == players[0].nickname.toLowerCase()) {
-                uuid1 = players[0].uuid;
-                player1 = players[0].nickname;
-                uuid2 = players[1].uuid;
-                player2 = players[1].nickname;
-            } else {
-                uuid1 = players[1].uuid;
-                player1 = players[1].nickname;
-                uuid2 = players[0].uuid;
-                player2 = players[0].nickname;
-            }
             let player1Wins = matchData[uuid1];
             let player2Wins = matchData[uuid2];
-            responseMessage = `${player1} ${player1Wins}-${player2Wins} ${player2} ❚ ${matchData.total} total games played this season.`;
+            responseMessage = `${username1} ${player1Wins}-${player2Wins} ${username2} ❚ ${matchData.total} total games played this season.`;
 
             return responseMessage;
         }

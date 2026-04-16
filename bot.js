@@ -118,8 +118,6 @@ const sanitize = str =>
         let target = tags.username;
         let result;
 
-        if (!arg1) result = "Please use +link <IGN> to link account or use +record <IGN1> <IGN2>";
-
         if (!arg2) {
             const linked = await getLinkedIGN(target);
             if (!linked) {

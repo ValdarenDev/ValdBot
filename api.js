@@ -20,7 +20,7 @@ export async function getElo(username) {
         let userPb = timeConversion(userStats.bestTime.ranked);
         let userAverage = timeConversion(userStats.completionTime.ranked/userCompletions);
 
-        let responseMessage = `${userName} Elo: ${userElo} (${userPeak} Peak) ❚ ${userRank} (#${userPlacement}) ❚ W/L: ${userWins}/${userLosses} (${userWinrate}%) ❚ Matches: ${userMatchesPlayed} Played ❚ Pb: ${userPb} Average: ${userAverage} ❚ Phase Points: ${userPhasePoints}`;
+        let responseMessage = `${username} Elo: ${userElo} (${userPeak} Peak) ❚ ${userRank} (#${userPlacement}) ❚ W/L: ${userWins}/${userLosses} (${userWinrate}%) ❚ Matches: ${userMatchesPlayed} Played ❚ Pb: ${userPb} Average: ${userAverage} ❚ Phase Points: ${userPhasePoints}`;
 
         return responseMessage;
     } catch (err) {
@@ -31,7 +31,7 @@ export async function getElo(username) {
 
 export async function getToday(username) {
     try {
-        const response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=100`);
+        const response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&excludedecay=true`);
         let responseMessage;
         const twelveHoursAgo = Math.floor((Date.now() - 43200000)/1000);
         const matchData = response.data.data;
@@ -70,7 +70,7 @@ export async function getToday(username) {
         let totalDraws = totalMatches - (totalWins + totalLosses);
         let totalWinrate = Math.round((totalWins/(totalMatches - totalDraws)) * 1000) / 10;
 
-        responseMessage = `${userName} 12hr Ranked Stats ❚ Elo: ${currentElo} (${eloChange}) ❚ W/L: ${totalWins}/${totalLosses} (${totalWinrate}%) ❚ Average: ${gamesAverage}`;
+        responseMessage = `${username} 12hr Ranked Stats ❚ Elo: ${currentElo} (${eloChange}) ❚ W/L: ${totalWins}/${totalLosses} (${totalWinrate}%) ❚ Average: ${gamesAverage}`;
 
         return responseMessage;
     } catch (err) {
@@ -147,7 +147,7 @@ export async function getAverageCommand(username) {
                 `${name}: ${avg(dict[p + "_time"], dict[p + "_matches"])}`)
             .join(" ⋮ ");
 
-        return `Overall Average: ${all_avg} (${matches.length} completions) ❚ ${seedAverages} ❚ ${bastionAverages}`;
+        return `${username}'s overall average: ${all_avg} (${matches.length} completions) ❚ ${seedAverages} ❚ ${bastionAverages}`;
 
     } catch (err) {
         console.error("API error:", err);
@@ -212,7 +212,7 @@ export async function getWinrateCommand(username) {
 
         const overall = rate(totalWins, totalLosses);
 
-        return `Overall Winrate: ${overall} (${matches.length} matches) ❚ ${seedRates} ❚ ${bastionRates}`;
+        return `${username}'s overall winrate: ${overall} (${matches.length} matches) ❚ ${seedRates} ❚ ${bastionRates}`;
 
     } catch (err) {
         console.error("API error:", err);
@@ -287,7 +287,7 @@ export async function getLastCommand(username, quantity) {
 
         const overallAvg = avg(totalTime, totalCompletions);
 
-        return `Last ${matches.length} games: Overall: ${overallAvg} (${overallRate}) ❚ ${seedStats} ❚ ${bastionStats}`;
+        return `${username}'s last ${matches.length} games: Overall: ${overallAvg} (${overallRate}) ❚ ${seedStats} ❚ ${bastionStats}`;
 
     } catch (err) {
         console.error("API error:", err);
@@ -386,7 +386,7 @@ async function getPlayerMatches(username, quantity = null) {
     let totalMatches;
 
     if (quantity == null) {
-        const userRes = await axios.get(`https://mcsrranked.com/api/users/${username}`);
+        const userRes = await axios.get(`https://mcsrranked.com/api/users/${username}&excludedecay=true`);
         totalMatches = userRes.data.data.statistics.season.playedMatches.ranked;
     } else {
         totalMatches = quantity;

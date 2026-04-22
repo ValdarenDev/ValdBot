@@ -108,8 +108,9 @@ export async function getToday(username) {
 
 export async function getAverageCommand(username) {
     try {
-        const matches = await getPlayerMatches(username, quantity);
-        
+        const matches = await getPlayerMatches(username);
+        const userRes = await axios.get(`https://mcsrranked.com/api/users/${username}`);
+
         const stats = userRes.data.data.statistics.season;
         const res = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
         const uuid = res.data.id;
@@ -154,7 +155,7 @@ export async function getAverageCommand(username) {
 
 export async function getWinrateCommand(username) {
     try {
-        const matches = await getPlayerMatches(username, quantity);
+        const matches = await getPlayerMatches(username);
 
         const res = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
         const uuid = res.data.id;

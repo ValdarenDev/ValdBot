@@ -31,7 +31,7 @@ export async function getElo(username) {
 
 export async function getToday(username) {
     try {
-        const response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&excludedecay=true`);
+        const response = await axios.get(`https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&excludeDecay=true`);
         let responseMessage;
         const twelveHoursAgo = Math.floor((Date.now() - 43200000)/1000);
         const matchData = response.data.data;
@@ -381,7 +381,7 @@ async function getPlayerMatches(username, quantity = null) {
     let totalMatches;
 
     if (quantity == null) {
-        const userRes = await axios.get(`https://mcsrranked.com/api/users/${username}&excludedecay=true`);
+        const userRes = await axios.get(`https://mcsrranked.com/api/users/${username}`);
         totalMatches = userRes.data.data.statistics.season.playedMatches.ranked;
     } else {
         totalMatches = quantity;
@@ -392,8 +392,8 @@ async function getPlayerMatches(username, quantity = null) {
 
     while (matchesList.length < totalMatches) {
         const url = before
-            ? `https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&before=${before}&excludedecay=true`
-            : `https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&excludedecay=true`;
+            ? `https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&before=${before}&excludeDecay=true`
+            : `https://mcsrranked.com/api/users/${username}/matches?type=2&count=100&excludeDecay=true`;
 
         const res = await axios.get(url);
         const batch = res.data.data;

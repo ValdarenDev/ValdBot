@@ -270,4 +270,8 @@ client.on("message", async (channel, tags, message, self) => {
         }
     }
 
+    else if (cmdName === "docs") {
+        client.say(channel, `/me @${callerUsername} Here are the ValdBot docs: https://valdbot-docs.vercel.app`);
+    }
+
 });

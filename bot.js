@@ -1,13 +1,13 @@
 import tmi from "tmi.js";
-import { getElo, getToday, getRecord, getAverageCommand, getWinrateCommand, getLastCommand } from "./api.js";
+import { getElo, getToday, getRecord, getAverageCommand, getWinrateCommand, getLastCommand, getForfeitCommand } from "./api.js";
 import { linkAccount } from "./link.js";
 import { redis } from "./redis.js";
 
 // Local Testing
-// if (process.env.NODE_ENV !== "production") {
-//     const dotenv = await import("dotenv");
-//     dotenv.config({ override: false });
-// }
+if (process.env.NODE_ENV !== "production") {
+    const dotenv = await import("dotenv");
+    dotenv.config({ override: false });
+}
 
 console.log("Good morning!");
 
@@ -19,10 +19,10 @@ async function loadChannels() {
     return keys.map(k => k.replace("channels:", ""));
 }
 
-const channels = await loadChannels();
+// const channels = await loadChannels();
 
 // Local Testing
-// const channels = ["valdaren"];
+const channels = ["valdaren"];
 
 const client = new tmi.Client({
     identity: {
@@ -51,202 +51,222 @@ async function getLinkedIGN(username) {
 client.on("message", async (channel, tags, message, self) => {
     if (self) return;
 
-const sanitize = str =>
-    (str || "")
-        .replace(/[\u034F\u200B-\u200F\uFEFF]/g, "")
-        .trim();
+    const sanitize = str =>
+        (str || "")
+            .replace(/[\u034F\u200B-\u200F\uFEFF]/g, "")
+            .trim();
 
     const cleanMessage = sanitize(message);
-
     const parts = cleanMessage.split(/\s+/);
+    const rawCommand = sanitize(parts[0] || "").toLowerCase();
 
-    const command = sanitize(parts[0] || "").toLowerCase();
-    const arg1 = sanitize(parts[1] || "");
-    const arg2 = sanitize(parts[2] || "");
+    // --- Determine mode and normalize command name ---
+    // Modes:
+    //   "normal"   → +<cmd> [IGN]      caller's linked IGN or explicit IGN arg
+    //   "mention"  → +<cmd> @<user>    mentioned user's linked IGN
+    //   "streamer" → #<cmd>            streamer's linked IGN (no IGN arg accepted)
 
-    if (command === "+elo") {
-        let target = tags.username;
-        let result;
-        
-        if (!arg1) {
-            const linked = await getLinkedIGN(target);
-            if (!linked) {
-                result = "Please use +link <IGN> to link account or use +elo <IGN>";
-            } else {
-                result = await getElo(linked);
-            }
+    let mode, cmdName;
+
+    if (rawCommand.startsWith("#")) {
+        mode = "streamer";
+        cmdName = rawCommand.slice(1);
+    } else if (rawCommand.startsWith("+")) {
+        cmdName = rawCommand.slice(1);
+        if (parts[1] && sanitize(parts[1]).startsWith("@")) {
+            mode = "mention";
         } else {
-            result = await getElo(arg1);
+            mode = "normal";
         }
-
-        client.say(channel, `/me @${target} ${result}`);
+    } else {
+        return; // not a bot command
     }
 
-    if (command === "+today") {
-        let target = tags.username;
-        let result;
+    // Shift args: in mention mode parts[1] is the @user, so real args start at parts[2]
+    const argOffset = mode === "mention" ? 2 : 1;
 
-        if (!arg1) {
-            const linked = await getLinkedIGN(target);
-            if (!linked) {
-                result = "Please use +link <IGN> to link account or use +today <IGN>";
-            } else {
-                result = await getToday(linked);
-            }
-        } else {
-            result = await getToday(arg1);
+    // Extract season:<n> from anywhere in the remaining tokens, then remove it
+    const remainingParts = parts.slice(argOffset);
+    let season = null;
+    const filteredParts = remainingParts.filter(p => {
+        const match = sanitize(p).toLowerCase().match(/^season:(\d+)$/);
+        if (match) { season = parseInt(match[1], 10); return false; }
+        return true;
+    });
+
+    const arg1 = sanitize(filteredParts[0] || "");
+    const arg2 = sanitize(filteredParts[1] || "");
+
+    const callerUsername = tags.username;
+    const streamerUsername = channel.replace(/^#/, "");
+
+    // resolveIGN returns { ign } on success or { error } on failure.
+    async function resolveIGN(explicitIgn = null) {
+        if (explicitIgn) return { ign: explicitIgn };
+
+        if (mode === "streamer") {
+            const ign = await getLinkedIGN(streamerUsername);
+            if (!ign) return { error: `${streamerUsername} does not have a linked account` };
+            return { ign };
         }
 
-        client.say(channel, `/me @${target} ${result}`);
-    }
-
-    if (command === "+link") {
-        let target = tags.username;
-        let result;
-
-        if (!arg1) {
-            result = "Please provide an IGN, +link <IGN>";
-        } else {
-            result = await linkAccount(target, arg1);
-            await redis.set(`userLinks:${target.toLowerCase()}`, arg1);
+        if (mode === "mention") {
+            const mentionedUser = sanitize(parts[1]).replace(/^@/, "").toLowerCase();
+            const ign = await getLinkedIGN(mentionedUser);
+            if (!ign) return { error: `@${mentionedUser} does not have a linked account` };
+            return { ign };
         }
 
-        client.say(channel, `/me @${target} ${result}`);
+        // normal — caller's own linked IGN
+        const ign = await getLinkedIGN(callerUsername);
+        if (!ign) return { error: `Please use +link <IGN> to link your account` };
+        return { ign };
     }
 
-    if (command === "+record") {
-        let target = tags.username;
+    // -------------------------------------------------------
+    // Commands
+    // -------------------------------------------------------
+
+    if (cmdName === "elo") {
+        const { ign, error } = await resolveIGN(mode === "normal" && arg1 ? arg1 : null);
+        const result = error ?? await getElo(ign, season);
+        client.say(channel, `/me @${callerUsername} ${result}`);
+    }
+
+    else if (cmdName === "today") {
+        const { ign, error } = await resolveIGN(mode === "normal" && arg1 ? arg1 : null);
+        const result = error ?? await getToday(ign);
+        client.say(channel, `/me @${callerUsername} ${result}`);
+    }
+
+    else if (cmdName === "link") {
+        let result;
+        if (!arg1) {
+            result = "Please provide an IGN: +link <IGN>";
+        } else {
+            result = await linkAccount(callerUsername, arg1);
+        }
+        client.say(channel, `/me @${callerUsername} ${result}`);
+    }
+
+    else if (cmdName === "record") {
         let result;
 
-        if (!arg2) {
-            const linked = await getLinkedIGN(target);
-            if (!linked) {
-                result = "Please use +link <IGN> to link account or use +record <IGN1> <IGN2>";
-            } else {
-                result = await getRecord(linked, arg1);
-            }
+        if (mode === "normal" && arg1 && arg2) {
+            const resolveArg = async (arg) => {
+                if (arg.startsWith("@")) {
+                    const user = arg.replace(/^@/, "").toLowerCase();
+                    const ign = await getLinkedIGN(user);
+                    if (!ign) return { error: `@${user} does not have a linked account` };
+                    return { ign };
+                }
+                return { ign: arg };
+            };
+
+            const [r1, r2] = await Promise.all([resolveArg(arg1), resolveArg(arg2)]);
+            if (r1.error) { client.say(channel, `/me @${callerUsername} ${r1.error}`); return; }
+            if (r2.error) { client.say(channel, `/me @${callerUsername} ${r2.error}`); return; }
+            result = await getRecord(r1.ign, r2.ign, season);
         } else {
-            result = await getRecord(arg1, arg2);
+            let opponentIgn;
+            if (arg1 && arg1.startsWith("@")) {
+                const user = arg1.replace(/^@/, "").toLowerCase();
+                const ign = await getLinkedIGN(user);
+                if (!ign) {
+                    client.say(channel, `/me @${callerUsername} @${user} does not have a linked account`);
+                    return;
+                }
+                opponentIgn = ign;
+            } else {
+                opponentIgn = arg1;
+            }
+
+            const { ign, error } = await resolveIGN(null);
+            if (error) {
+                client.say(channel, `/me @${callerUsername} ${error} — or use +record <IGN1> <IGN2>`);
+                return;
+            }
+            result = await getRecord(ign, opponentIgn, season);
         }
 
         console.log(result);
-
-        client.say(channel, `/me @${tags.username} ${result}`);
+        client.say(channel, `/me @${callerUsername} ${result}`);
     }
 
-    if (command === "+average") {
-        let target = tags.username;
-        let result;
+    else if (cmdName === "average") {
+        const { ign, error } = await resolveIGN(mode === "normal" && arg1 ? arg1 : null);
+        const result = error ?? await getAverageCommand(ign, season);
+        console.log(result);
+        client.say(channel, `/me @${callerUsername} ${result}`);
+    }
 
-        if (!arg1) {
-            const linked = await getLinkedIGN(target);
-            if (!linked) {
-                result = "Please use +link <IGN> to link account or use +today <IGN>";
+    else if (cmdName === "winrate") {
+        const { ign, error } = await resolveIGN(mode === "normal" && arg1 ? arg1 : null);
+        const result = error ?? await getWinrateCommand(ign, season);
+        console.log(result);
+        client.say(channel, `/me @${callerUsername} ${result}`);
+    }
+
+    else if (cmdName === "ff") {
+        const { ign, error } = await resolveIGN(mode === "normal" && arg1 ? arg1 : null);
+        const result = error ?? await getForfeitCommand(ign, season);
+        console.log(result);
+        client.say(channel, `/me @${callerUsername} ${result}`);
+    }
+
+    else if (cmdName === "last") {
+        let ign = null;
+        let quantity = null;
+
+        if (mode === "normal") {
+            if (arg1 && !Number.isInteger(Number(arg1))) {
+                ign = arg1;
+                quantity = arg2 ? Number(arg2) : null;
             } else {
-                result = await getAverageCommand(linked);
+                quantity = arg1 ? Number(arg1) : null;
             }
         } else {
-            result = await getAverageCommand(arg1);
-        }
-
-        console.log(result);
-
-        client.say(channel, `/me @${tags.username} ${result}`);
-    }
-
-    if (command === "+winrate") {
-        let target = tags.username;
-        let result;
-
-        if (!arg1) {
-            const linked = await getLinkedIGN(target);
-            if (!linked) {
-                result = "Please use +link <IGN> to link account or use +today <IGN>";
-            } else {
-                result = await getWinrateCommand(linked);
-            }
-        } else {
-            result = await getWinrateCommand(arg1);
-        }
-
-        console.log(result);
-
-        client.say(channel, `/me @${tags.username} ${result}`);
-    }
-
-    if (command === "+last") {
-        let target = tags.username;
-        let result;
-
-        let ign = arg1?.trim();
-        let quantity = arg2 ? Number(arg2) : null;
-
-        if (ign && Number.isInteger(Number(ign))) {
-            quantity = Number(ign);
-            ign = null;
+            quantity = arg1 ? Number(arg1) : null;
         }
 
         if (!quantity || !Number.isInteger(quantity) || quantity <= 0) {
-            if (quantity <= 0) {
-                result = "Need to provide <Quantity> greater than 0";
-                client.say(channel, `/me @${tags.username} ${result}`);
-                return;
-            }
-            result = "Please use +link <IGN> to link your account or use +last <IGN> <Quantity>";
-            client.say(channel, `/me @${tags.username} ${result}`);
+            const msg = quantity <= 0
+                ? "Need to provide a quantity greater than 0"
+                : "Please provide a quantity: +last [IGN] <Quantity>";
+            client.say(channel, `/me @${callerUsername} ${msg}`);
             return;
         }
 
-        if (!ign) {
-            const linked = await getLinkedIGN(target);
-
-            if (!linked) {
-                result = "Please use +link <IGN> to link your account or use +last <IGN> <Quantity>";
-            } else {
-                result = await getLastCommand(linked, quantity);
-            }
-        }
-
-        else {
-            result = await getLastCommand(ign, quantity);
-        }
-
-        client.say(channel, `/me @${tags.username} ${result}`);
+        const { ign: resolvedIgn, error } = await resolveIGN(ign);
+        const result = error ?? await getLastCommand(resolvedIgn, quantity, season);
+        client.say(channel, `/me @${callerUsername} ${result}`);
     }
 
-    if (command === "+join") {
-        const target = tags.username.toLowerCase();
+    else if (cmdName === "join") {
+        const target = callerUsername.toLowerCase();
         const chanKey = `channels:${target}`;
-
-        const exists = await redis.exists(chanKey);
-
-        if (!exists) {
-            await redis.set(chanKey, "1");
-        }
-
+        await redis.set(chanKey, "1");
         try {
             await client.join(target);
-            client.say(channel, `/me @${tags.username} Joined your channel!`);
+            client.say(channel, `/me @${callerUsername} Joined your channel!`);
             console.log(`Joined channel: ${target}`);
         } catch (err) {
             console.error("Join error:", err);
-            client.say(channel, `/me @${tags.username} Failed to join your channel.`);
+            client.say(channel, `/me @${callerUsername} Failed to join your channel.`);
         }
     }
 
-    if (command === "+leave") {
-        const target = tags.username.toLowerCase();
+    else if (cmdName === "leave") {
+        const target = callerUsername.toLowerCase();
         const chanKey = `channels:${target}`;
-
         await redis.del(chanKey);
-
         try {
             await client.part(target);
-            client.say(channel, `/me @${tags.username} Left your channel.`);
+            client.say(channel, `/me @${callerUsername} Left your channel.`);
             console.log(`Left channel: ${target}`);
         } catch (err) {
             console.error("Leave error:", err);
-            client.say(channel, `/me @${tags.username} Failed to leave your channel.`);
+            client.say(channel, `/me @${callerUsername} Failed to leave your channel.`);
         }
     }
 

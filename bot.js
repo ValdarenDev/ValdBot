@@ -4,10 +4,10 @@ import { linkAccount } from "./link.js";
 import { redis } from "./redis.js";
 
 // Local Testing
-if (process.env.NODE_ENV !== "production") {
-    const dotenv = await import("dotenv");
-    dotenv.config({ override: false });
-}
+// if (process.env.NODE_ENV !== "production") {
+//     const dotenv = await import("dotenv");
+//     dotenv.config({ override: false });
+// }
 
 console.log("Good morning!");
 
@@ -19,10 +19,10 @@ async function loadChannels() {
     return keys.map(k => k.replace("channels:", ""));
 }
 
-// const channels = await loadChannels();
+const channels = await loadChannels();
 
 // Local Testing
-const channels = ["valdaren"];
+// const channels = ["valdaren"];
 
 const client = new tmi.Client({
     identity: {

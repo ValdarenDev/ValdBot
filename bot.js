@@ -2,6 +2,7 @@ import tmi from "tmi.js";
 import { getElo, getToday, getRecord, getAverageCommand, getWinrateCommand, getLastCommand, getForfeitCommand } from "./api.js";
 import { linkAccount } from "./link.js";
 import { redis } from "./redis.js";
+import { refreshAccessToken } from "./twitchAuth.js";
 
 // Local Testing
 // if (process.env.NODE_ENV !== "production") {
@@ -12,7 +13,6 @@ import { redis } from "./redis.js";
 console.log("Good morning!");
 
 const BOT_USERNAME = process.env.BOT_USERNAME;
-const OAUTH_TOKEN = process.env.OAUTH_TOKEN;
 
 async function loadChannels() {
     const keys = await redis.keys("channels:*");
@@ -24,13 +24,39 @@ const channels = await loadChannels();
 // Local Testing
 // const channels = ["valdaren"];
 
+// Get a fresh access token before connecting instead of relying on a
+// hardcoded OAUTH_TOKEN that eventually expires.
+const { accessToken: initialToken, expiresIn: initialExpiresIn } = await refreshAccessToken();
+
 const client = new tmi.Client({
     identity: {
         username: BOT_USERNAME,
-        password: OAUTH_TOKEN
+        password: `oauth:${initialToken}`
     },
     channels: channels
 });
+
+// Proactively refresh the token before it expires and reconnect with the
+// new one. Twitch access tokens from this flow last a few hours, so
+// refresh a bit early to be safe.
+function scheduleTokenRefresh(expiresIn) {
+    const refreshInMs = Math.max((expiresIn - 300) * 1000, 60_000); // 5 min buffer, min 1 min
+    setTimeout(async () => {
+        try {
+            const { accessToken, expiresIn: nextExpiresIn } = await refreshAccessToken();
+            client.opts.identity.password = `oauth:${accessToken}`;
+            await client.disconnect();
+            await client.connect();
+            console.log("Reconnected with refreshed Twitch token");
+            scheduleTokenRefresh(nextExpiresIn);
+        } catch (err) {
+            console.error("Token refresh failed, retrying in 5 minutes:", err);
+            setTimeout(() => scheduleTokenRefresh(0), 5 * 60_000);
+        }
+    }, refreshInMs);
+}
+
+scheduleTokenRefresh(initialExpiresIn);
 
 client.on("join", (chan, username) => {
     if (username.toLowerCase() === BOT_USERNAME.toLowerCase()) {

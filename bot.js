@@ -19,14 +19,20 @@ async function loadChannels() {
     return keys.map(k => k.replace("channels:", ""));
 }
 
-const channels = await loadChannels();
+// const channels = await loadChannels();
 
 // Local Testing
-// const channels = ["valdaren"];
+const channels = ["valdaren"];
 
 // Get a fresh access token before connecting instead of relying on a
 // hardcoded OAUTH_TOKEN that eventually expires.
-const { accessToken: initialToken, expiresIn: initialExpiresIn } = await refreshAccessToken();
+let initialToken, initialExpiresIn;
+try {
+    ({ accessToken: initialToken, expiresIn: initialExpiresIn } = await refreshAccessToken());
+} catch (err) {
+    console.error("Initial Twitch token refresh failed:", err.response?.data ?? err.message);
+    process.exit(1);
+}
 
 const client = new tmi.Client({
     identity: {
@@ -50,7 +56,7 @@ function scheduleTokenRefresh(expiresIn) {
             console.log("Reconnected with refreshed Twitch token");
             scheduleTokenRefresh(nextExpiresIn);
         } catch (err) {
-            console.error("Token refresh failed, retrying in 5 minutes:", err);
+            console.error("Token refresh failed, retrying in 5 minutes:", err.response?.data ?? err.message);
             setTimeout(() => scheduleTokenRefresh(0), 5 * 60_000);
         }
     }, refreshInMs);

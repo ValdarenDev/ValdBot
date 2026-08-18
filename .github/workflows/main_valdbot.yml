@@ -16,6 +16,7 @@ jobs:
       AZURE_CONTAINERAPP_NAME: vald-bot
       AZURE_RESOURCE_GROUP: valdbot-rg
       ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+      IMAGE_TAG: ${{ github.sha }}
 
     steps:
       - name: Checkout
@@ -35,10 +36,11 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t $ACR_LOGIN_SERVER/valdbot:latest .
+          docker build -t $ACR_LOGIN_SERVER/valdbot:$IMAGE_TAG -t $ACR_LOGIN_SERVER/valdbot:latest .
 
       - name: Push Docker image
         run: |
+          docker push $ACR_LOGIN_SERVER/valdbot:$IMAGE_TAG
           docker push $ACR_LOGIN_SERVER/valdbot:latest
 
       - name: Create or update Container App
@@ -46,4 +48,4 @@ jobs:
           az containerapp update \
             --name $AZURE_CONTAINERAPP_NAME \
             --resource-group $AZURE_RESOURCE_GROUP \
-            --image $ACR_LOGIN_SERVER/valdbot:latest 
+            --image $ACR_LOGIN_SERVER/valdbot:$IMAGE_TAG

@@ -19,10 +19,10 @@ async function loadChannels() {
     return keys.map(k => k.replace("channels:", ""));
 }
 
-// const channels = await loadChannels();
+const channels = await loadChannels();
 
 // Local Testing
-const channels = ["valdaren"];
+// const channels = ["valdaren"];
 
 // Get a fresh access token before connecting instead of relying on a
 // hardcoded OAUTH_TOKEN that eventually expires.

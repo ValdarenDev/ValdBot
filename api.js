@@ -119,10 +119,67 @@ const avg = (t, c) => c > 0 ? timeConversion(t / c) : "N/A";
 const rate = (w, l) => (w + l) > 0 ? ((w / (w + l)) * 100).toFixed(1) + "%" : "N/A";
 
 // -------------------------------------------------------
+// Season Handling
+// -------------------------------------------------------
+
+// Value bot.js passes as `season` when the user types "alltime" (any casing).
+// `season` is therefore one of: null (current season), a number, or ALL_TIME.
+export const ALL_TIME = "alltime";
+const isAllTime = season => season === ALL_TIME;
+
+// Returns the seasons a player has played, sorted oldest → newest.
+// seasonResults is an object keyed by season number and skips seasons the
+// player didn't play (e.g. { "1": {...}, "2": {...}, "4": {...} }), so the
+// keys are used directly instead of counting entries and looping 1..count.
+async function getPlayedSeasons(username) {
+    const res = await axios.get(`https://api.mcsrranked.com/users/${username}/seasons`);
+    const seasonResults = res.data.data.seasonResults ?? {};
+    const seasons = Object.keys(seasonResults)
+        .map(Number)
+        .filter(Number.isInteger)
+        .sort((a, b) => a - b);
+    return { seasons, seasonResults };
+}
+
+// Runs fetchFn once per season (in parallel) and returns [{ season, data }, ...]
+// in the same order as `seasons`.
+async function fetchEachSeason(seasons, fetchFn) {
+    const results = await Promise.all(seasons.map(s => fetchFn(s)));
+    return seasons.map((season, i) => ({ season, data: results[i] }));
+}
+
+// Fetches and stores the /users/{username}?season=<n> profile for every season played.
+async function getAllSeasonProfiles(username) {
+    const { seasons, seasonResults } = await getPlayedSeasons(username);
+    const profiles = await fetchEachSeason(seasons, s =>
+        axios.get(`https://mcsrranked.com/api/users/${username}?season=${s}`).then(r => r.data.data)
+    );
+    return { seasons, seasonResults, profiles };
+}
+
+// Sums a ranked season stat (e.g. "wins", "forfeits") across every stored season profile.
+function sumRankedStat(profiles, key) {
+    return profiles.reduce((sum, { data }) => sum + (data.statistics.season[key]?.ranked ?? 0), 0);
+}
+
+function bracketSeasonLabel(season) {
+    if (season === null) return "";
+    return isAllTime(season) ? " [All-Time]" : ` [Season ${season}]`;
+}
+
+function noMatchesMessage(username, season) {
+    if (season === null) return `${username} has no ranked matches this season`;
+    if (isAllTime(season)) return `No ranked matches found for ${username}`;
+    return `No matches found for ${username} in season ${season}`;
+}
+
+// -------------------------------------------------------
 // Match Fetching & Organization
 // -------------------------------------------------------
 
 async function getPlayerMatches(username, quantity = null, season = null) {
+    if (isAllTime(season)) return getAllTimeMatches(username, quantity);
+
     let totalMatches;
 
     if (quantity == null) {
@@ -169,6 +226,27 @@ async function getPlayerMatches(username, quantity = null, season = null) {
     }
 
     return matchesList;
+}
+
+// Fetches matches from every season the player has played, one season at a time,
+// and combines them newest → oldest (same order the API uses within a season).
+async function getAllTimeMatches(username, quantity = null) {
+    const { seasons } = await getPlayedSeasons(username);
+    const newestFirst = [...seasons].reverse();
+
+    if (quantity == null) {
+        const perSeason = await fetchEachSeason(newestFirst, s => getPlayerMatches(username, null, s));
+        return perSeason.flatMap(({ data }) => data);
+    }
+
+    // "Last N" only has to walk back through seasons until N matches are collected
+    const matches = [];
+    for (const s of newestFirst) {
+        const batch = await getPlayerMatches(username, quantity - matches.length, s);
+        matches.push(...batch);
+        if (matches.length >= quantity) break;
+    }
+    return matches;
 }
 
 function organizeMatches(matches, uuid) {
@@ -225,11 +303,94 @@ function organizeMatches(matches, uuid) {
 }
 
 // -------------------------------------------------------
+// All-Time Variants
+// -------------------------------------------------------
+
+async function getEloAllTime(username) {
+    const [{ seasons, seasonResults, profiles }, mojangRes] = await Promise.all([
+        getAllSeasonProfiles(username),
+        axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`)
+    ]);
+
+    const displayName = mojangRes.data.name;
+    if (seasons.length === 0) {
+        return `${displayName} has not played any ranked seasons`;
+    }
+
+    // Highest elo reached in any season
+    let peakElo = null;
+    let peakSeason = null;
+    for (const s of seasons) {
+        const highest = seasonResults[s]?.highest;
+        if (highest != null && (peakElo === null || highest > peakElo)) {
+            peakElo = highest;
+            peakSeason = s;
+        }
+    }
+
+    const matchesPlayed = sumRankedStat(profiles, "playedMatches");
+    const wins = sumRankedStat(profiles, "wins");
+    const losses = sumRankedStat(profiles, "loses");
+    const completions = sumRankedStat(profiles, "completions");
+    const completionTime = sumRankedStat(profiles, "completionTime");
+    const bestTimes = profiles
+        .map(({ data }) => data.statistics.season.bestTime?.ranked)
+        .filter(t => t != null);
+
+    const peakLabel = peakElo !== null
+        ? `${peakElo} (${rankConversion(peakElo)}, Season ${peakSeason})`
+        : "N/A";
+    const pb = bestTimes.length ? timeConversion(Math.min(...bestTimes)) : "N/A";
+    const average = avg(completionTime, completions);
+    const seasonCount = `${seasons.length} season${seasons.length === 1 ? "" : "s"}`;
+
+    return `${displayName} All-Time Stats ❚ Peak Elo: ${peakLabel} ❚ W/L: ${wins}/${losses} (${rate(wins, losses)}) ❚ Matches: ${matchesPlayed} Played across ${seasonCount} ❚ Pb: ${pb} Average: ${average}`;
+}
+
+async function getRecordAllTime(username1, username2) {
+    const [seasons1, seasons2, res1, res2] = await Promise.all([
+        getPlayedSeasons(username1),
+        getPlayedSeasons(username2),
+        axios.get(`https://api.mojang.com/users/profiles/minecraft/${username1}`),
+        axios.get(`https://api.mojang.com/users/profiles/minecraft/${username2}`)
+    ]);
+
+    const uuid1 = res1.data.id;
+    const uuid2 = res2.data.id;
+    const displayName1 = res1.data.name;
+    const displayName2 = res2.data.name;
+
+    // Only seasons both players played can contain matches between them
+    const sharedSeasons = seasons1.seasons.filter(s => seasons2.seasons.includes(s));
+    const perSeason = await fetchEachSeason(sharedSeasons, s =>
+        axios.get(`https://api.mcsrranked.com/users/${username1}/versus/${username2}?season=${s}`)
+            .then(r => r.data.data.results.ranked)
+    );
+
+    let player1Wins = 0;
+    let player2Wins = 0;
+    let total = 0;
+    for (const { data } of perSeason) {
+        player1Wins += data[uuid1] ?? 0;
+        player2Wins += data[uuid2] ?? 0;
+        total += data.total ?? 0;
+    }
+
+    if (!total) {
+        return `${displayName1} and ${displayName2} have never played each other in ranked`;
+    }
+
+    return `${displayName1} ${player1Wins}-${player2Wins} ${displayName2} ❚ ${total} total games played all-time`;
+}
+
+// -------------------------------------------------------
 // Exported Commands
 // -------------------------------------------------------
 
 export async function getElo(username, season = null) {
     try {
+        if (isAllTime(season)) return await getEloAllTime(username);
+
         const seasonParam = season !== null ? `?season=${season}` : "";
         const [response, mojangRes] = await Promise.all([
             axios.get(`https://mcsrranked.com/api/users/${username}${seasonParam}`),
@@ -313,6 +474,8 @@ export async function getToday(username) {
 
 export async function getRecord(username1, username2, season = null) {
     try {
+        if (isAllTime(season)) return await getRecordAllTime(username1, username2);
+
         const seasonParam = season !== null ? `?season=${season}` : "";
         const [response, res1, res2] = await Promise.all([
             axios.get(`https://api.mcsrranked.com/users/${username1}/versus/${username2}${seasonParam}`),
@@ -347,9 +510,7 @@ export async function getAverageCommand(username, season = null) {
         const matches = await getPlayerMatches(username, null, season);
 
         if (matches.length === 0) {
-            return season !== null
-                ? `No matches found for ${username} in season ${season}`
-                : `${username} has no ranked matches this season`;
+            return noMatchesMessage(username, season);
         }
 
         const [mojangRes, userRes] = await Promise.all([
@@ -377,7 +538,7 @@ export async function getAverageCommand(username, season = null) {
             `${name}: ${avg(dict[p + "_time"], dict[p + "_matches"])}`
         ).join(" ⋮ ");
 
-        const seasonLabel = season !== null ? ` [Season ${season}]` : "";
+        const seasonLabel = bracketSeasonLabel(season);
         return `${displayName}${seasonLabel}'s overall average: ${all_avg} (${matches.length} completions) ❚ ${seedAverages} ❚ ${bastionAverages}`;
     } catch (err) {
         console.error("getAverageCommand error:", err);
@@ -390,9 +551,7 @@ export async function getWinrateCommand(username, season = null) {
         const matches = await getPlayerMatches(username, null, season);
 
         if (matches.length === 0) {
-            return season !== null
-                ? `No matches found for ${username} in season ${season}`
-                : `${username} has no ranked matches this season`;
+            return noMatchesMessage(username, season);
         }
 
         const mojangRes = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`);
@@ -415,7 +574,7 @@ export async function getWinrateCommand(username, season = null) {
             SEED_INFO.reduce((s, [p]) => s + dict[p + "_losses"], 0) +
             BASTION_INFO.reduce((s, [p]) => s + dict[p + "_losses"], 0);
 
-        const seasonLabel = season !== null ? ` [Season ${season}]` : "";
+        const seasonLabel = bracketSeasonLabel(season);
         return `${displayName}${seasonLabel}'s overall winrate: ${rate(totalWins, totalLosses)} (${matches.length} matches) ❚ ${seedRates} ❚ ${bastionRates}`;
     } catch (err) {
         console.error("getWinrateCommand error:", err);
@@ -425,21 +584,35 @@ export async function getWinrateCommand(username, season = null) {
 
 export async function getForfeitCommand(username, season = null) {
     try {
-        const seasonParam = season !== null ? `?season=${season}` : "";
-        const [response, mojangRes] = await Promise.all([
-            axios.get(`https://mcsrranked.com/api/users/${username}${seasonParam}`),
-            axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`)
-        ]);
+        let displayName, forfeits, totalMatches;
 
-        const displayName = mojangRes.data.name;
-        const stats = response.data.data.statistics.season;
-        const forfeits = stats.forfeits.ranked;
-        const totalMatches = stats.playedMatches.ranked;
+        if (isAllTime(season)) {
+            const [{ profiles }, mojangRes] = await Promise.all([
+                getAllSeasonProfiles(username),
+                axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`)
+            ]);
+            displayName = mojangRes.data.name;
+            forfeits = sumRankedStat(profiles, "forfeits");
+            totalMatches = sumRankedStat(profiles, "playedMatches");
+        } else {
+            const seasonParam = season !== null ? `?season=${season}` : "";
+            const [response, mojangRes] = await Promise.all([
+                axios.get(`https://mcsrranked.com/api/users/${username}${seasonParam}`),
+                axios.get(`https://api.mojang.com/users/profiles/minecraft/${username}`)
+            ]);
+            displayName = mojangRes.data.name;
+            const stats = response.data.data.statistics.season;
+            forfeits = stats.forfeits.ranked;
+            totalMatches = stats.playedMatches.ranked;
+        }
+
         const forfeitPct = totalMatches > 0
             ? ((forfeits / totalMatches) * 100).toFixed(1)
             : "0.0";
         const timesLabel = forfeits === 1 ? "time" : "times";
-        const seasonLabel = season !== null ? `in season ${season}` : "this season";
+        const seasonLabel = isAllTime(season)
+            ? "all-time"
+            : season !== null ? `in season ${season}` : "this season";
 
         return `${displayName} has forfeited ${forfeits} (${forfeitPct}% ff rate) ${timesLabel} ${seasonLabel}`;
     } catch (err) {
@@ -486,7 +659,7 @@ export async function getLastCommand(username, quantity, season = null) {
             SEED_INFO.reduce((s, [p]) => s + dict[p + "_matches"], 0) +
             BASTION_INFO.reduce((s, [p]) => s + dict[p + "_matches"], 0);
 
-        const seasonLabel = season !== null ? ` [Season ${season}]` : "";
+        const seasonLabel = bracketSeasonLabel(season);
         return `${displayName}${seasonLabel}'s last ${matches.length} games: Overall: ${avg(totalTime, totalCompletions)} (${rate(totalWins, totalLosses)}) ❚ ${seedStats} ❚ ${bastionStats}`;
     } catch (err) {
         console.error("getLastCommand error:", err);

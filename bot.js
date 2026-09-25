@@ -1,5 +1,5 @@
 import tmi from "tmi.js";
-import { getElo, getToday, getRecord, getAverageCommand, getWinrateCommand, getLastCommand, getForfeitCommand } from "./api.js";
+import { getElo, getToday, getRecord, getAverageCommand, getWinrateCommand, getLastCommand, getForfeitCommand, ALL_TIME } from "./api.js";
 import { linkAccount } from "./link.js";
 import { redis } from "./redis.js";
 import { refreshAccessToken } from "./twitchAuth.js";
@@ -19,10 +19,10 @@ async function loadChannels() {
     return keys.map(k => k.replace("channels:", ""));
 }
 
-const channels = await loadChannels();
+// const channels = await loadChannels();
 
 // Local Testing
-// const channels = ["valdaren"];
+const channels = ["valdaren"];
 
 // Get a fresh access token before connecting instead of relying on a
 // hardcoded OAUTH_TOKEN that eventually expires.
@@ -80,12 +80,15 @@ async function getLinkedIGN(username) {
     return await redis.get(`userLinks:${username.toLowerCase()}`);
 }
 
+// Commands that accept a season:<n> or alltime modifier
+const SEASON_COMMANDS = new Set(["elo", "record", "average", "winrate", "ff", "last"]);
+
 client.on("message", async (channel, tags, message, self) => {
     if (self) return;
 
     const sanitize = str =>
         (str || "")
-            .replace(/[\u034F\u200B-\u200F\uFEFF]/g, "")
+            .replace(/[͏​-‏﻿]/g, "")
             .trim();
 
     const cleanMessage = sanitize(message);
@@ -117,14 +120,26 @@ client.on("message", async (channel, tags, message, self) => {
     // Shift args: in mention mode parts[1] is the @user, so real args start at parts[2]
     const argOffset = mode === "mention" ? 2 : 1;
 
-    // Extract season:<n> from anywhere in the remaining tokens, then remove it
+    // Extract the season modifier from anywhere in the remaining tokens, then remove it.
+    // Valid options:
+    //   (none)      → season = null       (current season)
+    //   season:<n>  → season = <n>        (specific season)
+    //   alltime     → season = ALL_TIME   (every season the player has played, any casing)
     const remainingParts = parts.slice(argOffset);
     let season = null;
+    let seasonModifiers = 0;
     const filteredParts = remainingParts.filter(p => {
-        const match = sanitize(p).toLowerCase().match(/^season:(\d+)$/);
-        if (match) { season = parseInt(match[1], 10); return false; }
+        const token = sanitize(p).toLowerCase();
+        const match = token.match(/^season:(\d+)$/);
+        if (match) { season = parseInt(match[1], 10); seasonModifiers++; return false; }
+        if (token === ALL_TIME) { season = ALL_TIME; seasonModifiers++; return false; }
         return true;
     });
+
+    if (seasonModifiers > 1 && SEASON_COMMANDS.has(cmdName)) {
+        client.say(channel, `/me @${tags.username} Please use only one of season:<number> or alltime`);
+        return;
+    }
 
     const arg1 = sanitize(filteredParts[0] || "");
     const arg2 = sanitize(filteredParts[1] || "");

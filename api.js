@@ -81,8 +81,10 @@ function getResults(matchList, playerUuid) {
     let totalLosses = 0;
     let draws = 0;
     for (const match of matchList) {
-        if (match.result.uuid === playerUuid) totalWins++;
-        else if (match.result.uuid === null) draws++;
+        // Some matches come back with result: null — treat them as having no winner
+        const winner = match.result?.uuid ?? null;
+        if (winner === playerUuid) totalWins++;
+        else if (winner === null) draws++;
         else totalLosses++;
     }
     return { totalWins, totalLosses };
@@ -92,7 +94,7 @@ function getAverage(matchList, playerUuid) {
     let times = 0;
     let games = 0;
     for (const match of matchList) {
-        if (match.result.uuid === playerUuid && !match.forfeited) {
+        if (match.result?.uuid === playerUuid && !match.forfeited) {
             times += match.result.time;
             games++;
         }
@@ -208,14 +210,17 @@ async function getPlayerMatches(username, quantity = null, season = null) {
         if (!batch || batch.length === 0) break;
 
         for (const m of batch) {
+            // Some matches (seen in older seasons) come back with result: null even though
+            // the API docs say it's always present. Treat those as having no winner and no
+            // time so they're counted like a draw: not a win or loss, not in any average.
             matchesList.push({
                 id: m.id,
                 seedType: m.seedType,
                 bastionType: m.bastionType,
                 forfeited: m.forfeited,
                 result: {
-                    uuid: m.result.uuid,
-                    time: m.result.time
+                    uuid: m.result?.uuid ?? null,
+                    time: m.result?.time ?? null
                 }
             });
             if (matchesList.length >= totalMatches) break;
